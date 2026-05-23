@@ -138,6 +138,12 @@ body {
   margin-bottom: 12px;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .logo {
   font-size: 20px;
   font-weight: 800;
