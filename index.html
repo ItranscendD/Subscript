@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Subscript - Centralized Subscription Tracker</title>
+  <!-- Google Fonts: Inter for sleek typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="index.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Phone Mockup Frame wrapper (Visible on Desktop) -->
+    <div class="phone-frame">
+      
+      <!-- Phone Status Bar -->
+      <div class="phone-status-bar">
+        <span class="status-time" id="status-time">09:41</span>
+        <div class="status-icons">
+          <!-- Connection Bars -->
+          <svg class="icon-signal" viewBox="0 0 24 24">
+            <rect x="2" y="16" width="3" height="5" rx="1" />
+            <rect x="7" y="12" width="3" height="9" rx="1" />
+            <rect x="12" y="8" width="3" height="13" rx="1" />
+            <rect x="17" y="3" width="3" height="18" rx="1" />
+          </svg>
+          <!-- Wifi -->
+          <svg class="icon-wifi" viewBox="0 0 24 24">
+            <path d="M12 21a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z" />
+            <path d="M4.8 13.8a10 10 0 0 1 14.4 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            <path d="M1.9 10.9a14 14 0 0 1 20.2 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
+          <!-- Battery -->
+          <div class="battery-icon">
+            <div class="battery-level"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- App Header -->
+      <header class="app-header">
+        <div class="header-top">
+          <h1 class="logo">SUBSCRIPT</h1>
+          <button class="btn-reset-onboarding" id="reset-onboarding-btn" onclick="app.resetOnboarding()" title="Reset Onboarding Flow">
+            <svg viewBox="0 0 24 24" class="header-icon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+            </svg>
+          </button>
+          <button class="btn-notification" id="notification-bell" onclick="app.showNotificationHistory()">
+            <span class="notification-dot" id="global-alert-dot"></span>
+            <svg viewBox="0 0 24 24" class="header-icon">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" fill="currentColor" />
+            </svg>
+          </button>
+        </div>
+        
+        <!-- Segment Control: Personal vs Team -->
+        <div class="segment-control">
+          <div class="segment-pill" id="segment-pill"></div>
+          <button class="segment-btn active" onclick="app.switchScope('personal')">Personal</button>
+          <button class="segment-btn" onclick="app.switchScope('team')">Team Stack</button>
+        </div>
+      </header>
+
+      <!-- App Body (Scrollable Content) -->
+      <main class="app-body" id="app-body">
+        
+        <!-- HERO: Burn Statistics -->
+        <section class="burn-hero">
+          <div class="hero-label">TOTAL MONTHLY BURN</div>
+          <div class="hero-amount" id="total-monthly-burn">$0.00</div>
+          <div class="hero-footer">
+            <span class="annual-label">Annualized Cost: </span>
+            <span class="annual-amount" id="total-annual-burn">$0.00</span>
+          </div>
+        </section>
+
+        <!-- TEAM STACK MEMBERS BAR (Only visible on Team scope) -->
+        <section class="team-members-bar" id="team-members-bar" style="display: none;">
+          <div class="team-avatars-list" id="team-avatars-list">
+            <!-- Rendered by JS -->
+          </div>
+          <button type="button" class="btn-manage-team" onclick="app.openInviteModal()">
+            <span>Manage Seats</span>
+            <svg viewBox="0 0 24 24" class="manage-icon">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <circle cx="9" cy="7" r="4" fill="none" stroke="currentColor" stroke-width="2"/>
+              <line x1="19" y1="8" x2="19" y2="14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <line x1="22" y1="11" x2="16" y2="11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </section>
+
+        <!-- INSIGHTS & ALERTS BANNER STACK -->
+        <section class="alerts-section" id="alerts-section">
+          <!-- Dynamic Alert Cards injected by JS -->
+        </section>
+
+        <!-- VIEW PANELS -->
+        <div class="view-panels">
+          
+          <!-- 1. LIST TAB PANEL -->
+          <div class="tab-panel active" id="panel-list">
+            <div class="section-header">
+              <h2 class="section-title">Active Subscriptions</h2>
+              <div class="search-box">
+                <input type="text" id="search-input" placeholder="Search..." oninput="app.filterSubscriptions()">
+              </div>
+            </div>
+            <div class="subs-list" id="subs-list-container">
+              <!-- Injected dynamically by JS -->
+            </div>
+          </div>
+
+          <!-- 2. CALENDAR TAB PANEL -->
+          <div class="tab-panel" id="panel-calendar">
+            <div class="section-header">
+              <h2 class="section-title">Renewal Calendar</h2>
+              <div class="calendar-subtitle">Heatmap of cash outflows</div>
+            </div>
+            
+            <div class="calendar-container">
+              <div class="calendar-month-selector">
+                <button type="button" class="btn-month-nav" onclick="app.prevMonth()">◀</button>
+                <span class="calendar-month-title" id="calendar-month-title">May 2026</span>
+                <button type="button" class="btn-month-nav" onclick="app.nextMonth()">▶</button>
+              </div>
+              <div class="calendar-header-days">
+                <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
+              </div>
+              <div class="calendar-grid" id="calendar-grid">
+                <!-- Days will be dynamically rendered with different grey levels -->
+              </div>
+            </div>
+
+            <div class="calendar-legend">
+              <span>Low spend</span>
+              <div class="legend-scale">
+                <div class="scale-box level-0"></div>
+                <div class="scale-box level-1"></div>
+                <div class="scale-box level-2"></div>
+                <div class="scale-box level-3"></div>
+              </div>
+              <span>High spend</span>
+            </div>
+
+            <div class="upcoming-renewals">
+              <h3 class="sub-section-title">Upcoming Outflows (30 Days)</h3>
+              <div class="outflows-list" id="outflows-list">
+                <!-- Injected dynamically by JS -->
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. INSIGHTS TAB PANEL -->
+          <div class="tab-panel" id="panel-insights">
+            <div class="section-header">
+              <h2 class="section-title">Analytics</h2>
+            </div>
+            
+            <!-- Spend Trend Line Chart -->
+            <div class="spend-chart-container">
+              <h3>Projected 6-Month Outflow</h3>
+              <div class="chart-svg-wrapper" id="chart-svg-wrapper">
+                <!-- SVG line chart layout injected by JS -->
+              </div>
+              <div class="chart-tooltip" id="chart-tooltip"></div>
+            </div>
+
+            <!-- Seat Usage & Waste Analyzer -->
+            <div class="seat-analyzer-card" id="seat-analyzer-card" style="display: none;">
+              <h3>Seat Utilization Waste Analyzer</h3>
+              <div class="seat-metrics-grid">
+                <div class="seat-metric-box">
+                  <div class="seat-metric-val" id="seats-purchased-val">0</div>
+                  <div class="seat-metric-label">Seats Paid</div>
+                </div>
+                <div class="seat-metric-box">
+                  <div class="seat-metric-val" id="seats-assigned-val">0</div>
+                  <div class="seat-metric-label">Seats Active</div>
+                </div>
+                <div class="seat-metric-box">
+                  <div class="seat-metric-val waste-value" id="seats-waste-val">$0.00</div>
+                  <div class="seat-metric-label">Monthly Waste</div>
+                </div>
+              </div>
+              
+              <div class="seat-waste-alert-banner" id="seat-waste-banner" style="display: none;">
+                <!-- Waste warning alert -->
+              </div>
+              
+              <div class="seat-adjuster-row" id="seat-adjuster-row">
+                <!-- Dynamic seat count sliders -->
+              </div>
+            </div>
+            <!-- Redundancy detection widget -->
+            <div class="card redundancy-card" id="redundancy-card">
+              <div class="card-header">
+                <h3>Redundancy Detection</h3>
+                <span class="badge" id="redundancy-count">0 alerts</span>
+              </div>
+              <div class="redundancy-list" id="redundancy-list">
+                <!-- Duplicate subscriptions listed here -->
+              </div>
+            </div>
+
+            <!-- Spending Category breakdown list -->
+            <div class="card">
+              <div class="card-header">
+                <h3>Category Distribution</h3>
+              </div>
+              <div class="category-breakdown" id="category-breakdown">
+                <!-- Category percentages and bars -->
+              </div>
+            </div>
+
+            <!-- Quick stats grid -->
+            <div class="stats-grid">
+              <div class="stat-box">
+                <div class="stat-label">Total Subscriptions</div>
+                <div class="stat-val" id="stats-total-subs">0</div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-label">Trials Active</div>
+                <div class="stat-val" id="stats-trial-subs">0</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 4. ADD & SCAN TAB PANEL -->
+          <div class="tab-panel" id="panel-add">
+            <div class="section-header">
+              <h2 class="section-title">Add & Import</h2>
+              <div class="calendar-subtitle">Connect or add manually</div>
+            </div>
+
+            <!-- Gmail Scan Section -->
+            <div class="import-card">
+              <div class="import-icon">
+                <!-- Envelope with scan beams -->
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                </svg>
+              </div>
+              <h3>Gmail Header Import</h3>
+              <p>Securely scan your mailbox header receipts to instantly track existing SaaS, gaming, or content subscriptions.</p>
+              <button class="btn btn-primary" onclick="app.openGmailModal()">Scan Gmail Receipts</button>
+            </div>
+
+            <div class="divider"><span>OR ADD MANUALLY</span></div>
+
+            <!-- Add Form -->
+            <form id="add-subscription-form" onsubmit="app.handleAddSubscription(event)">
+              <div class="form-group">
+                <label for="sub-name">Subscription Name</label>
+                <input type="text" id="sub-name" placeholder="e.g. Netflix, Figma, Notion" required>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="sub-price">Cost ($)</label>
+                  <input type="number" id="sub-price" step="0.01" placeholder="15.00" required>
+                </div>
+                <div class="form-group">
+                  <label for="sub-cycle">Billing Cycle</label>
+                  <select id="sub-cycle">
+                    <option value="monthly">Monthly</option>
+                    <option value="yearly">Yearly</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="sub-category">Category</label>
+                <select id="sub-category">
+                  <option value="Entertainment">Entertainment</option>
+                  <option value="SaaS & Dev Tools">SaaS & Dev Tools</option>
+                  <option value="Productivity">Productivity</option>
+                  <option value="Utilities">Utilities</option>
+                  <option value="Music">Music</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="sub-card-binding">Link Payment Card</label>
+                <select id="sub-card-binding">
+                  <!-- Injected dynamically by JS -->
+                </select>
+              </div>
+              <div class="form-group check-group">
+                <label class="checkbox-container">
+                  <input type="checkbox" id="sub-is-trial" onchange="app.toggleTrialDate(this)">
+                  <span class="checkmark"></span>
+                  Is this a Free Trial?
+                </label>
+              </div>
+              
+              <div class="form-group" id="trial-date-group" style="display: none;">
+                <label for="sub-trial-end">Trial End Date (Charge starts next day)</label>
+                <input type="date" id="sub-trial-end">
+              </div>
+              
+              <div class="form-group" id="renewal-date-group">
+                <label for="sub-renewal-date">Next Renewal Date</label>
+                <input type="date" id="sub-renewal-date" required>
+              </div>
+
+              <button type="submit" class="btn btn-primary w-100">Add Subscription</button>
+            </form>
+          </div>
+
+          <!-- 5. WALLET TAB PANEL -->
+          <div class="tab-panel" id="panel-wallet">
+            <div class="section-header">
+              <h2 class="section-title">Virtual Cards</h2>
+              <div class="calendar-subtitle">Manage payment limits & security</div>
+            </div>
+            
+            <div class="wallet-container">
+              <div class="cards-carousel" id="virtual-cards-list">
+                <!-- Injected dynamically by JS -->
+              </div>
+              
+              <div class="wallet-sub-link-card">
+                <h4>Linked Card Transactions</h4>
+                <div class="wallet-linked-subs-list" id="linked-subs-list">
+                  <!-- Injected dynamically by JS -->
+                </div>
+              </div>
+              
+              <div class="card" style="padding: 16px;">
+                <h3 style="font-size: 13px; font-weight: 700; margin-bottom: 12px;">Create Virtual Card</h3>
+                <form id="create-card-form" onsubmit="app.handleCreateVirtualCard(event)" style="gap: 12px; margin-bottom: 0;">
+                  <div class="form-group">
+                    <label for="card-new-name">Card Name (Alias)</label>
+                    <input type="text" id="card-new-name" placeholder="e.g. Adobe Card, Entertainment Card" required>
+                  </div>
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="card-new-limit">Monthly Limit ($)</label>
+                      <input type="number" id="card-new-limit" step="1" placeholder="100" required>
+                    </div>
+                  </div>
+                  <button type="submit" class="btn btn-primary w-100 m-t-10">Generate Card</button>
+                </form>
+              </div>
+            </div>
+          </div>
+
+        </div> <!-- View Panels End -->
+
+      </main> <!-- Scrollable Body End -->
+
+      <!-- APP TABS NAVIGATION BAR -->
+      <nav class="app-tabs">
+        <button class="tab-btn active" data-tab="list" onclick="app.switchTab('list')">
+          <svg class="tab-icon" viewBox="0 0 24 24">
+            <line x1="8" y1="6" x2="21" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <line x1="8" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <line x1="8" y1="18" x2="21" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <line x1="3" y1="6" x2="3.01" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <line x1="3" y1="12" x2="3.01" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <line x1="3" y1="18" x2="3.01" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <span>Subs</span>
+        </button>
+        <button class="tab-btn" data-tab="calendar" onclick="app.switchTab('calendar')">
+          <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          <span>Calendar</span>
+        </button>
+        <button class="tab-btn" data-tab="insights" onclick="app.switchTab('insights')">
+          <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="20" x2="18" y2="10"/>
+            <line x1="12" y1="20" x2="12" y2="4"/>
+            <line x1="6" y1="20" x2="6" y2="14"/>
+          </svg>
+          <span>Insights</span>
+        </button>
+        <button class="tab-btn" data-tab="wallet" onclick="app.switchTab('wallet')">
+          <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+            <line x1="1" y1="10" x2="23" y2="10"/>
+          </svg>
+          <span>Wallet</span>
+        </button>
+        <button class="tab-btn" data-tab="add" onclick="app.switchTab('add')">
+          <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          <span>Import</span>
+        </button>
+      </nav>
+
+      <!-- MODAL: NOTIFICATION ACTION SHEET -->
+      <div class="modal-overlay" id="notification-action-modal">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3 id="notif-action-title">Notification Details</h3>
+            <button type="button" class="btn-close" onclick="app.closeNotificationActionModal()">✕</button>
+          </div>
+          
+          <div class="notif-action-body">
+            <div class="notif-action-icon-wrapper" id="notif-action-icon">🔔</div>
+            <p class="notif-action-desc" id="notif-action-desc">Description details go here.</p>
+            
+            <div class="notif-sub-details-card" id="notif-sub-details-card" style="display: none;">
+              <!-- Dynamic sub details card -->
+            </div>
+            
+            <div class="notif-actions-stack" id="notif-actions-stack">
+              <!-- Dynamic action buttons stack -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL: REDUNDANCY REVIEW -->
+      <div class="modal-overlay" id="redundancy-review-modal">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>Resolve Overlap</h3>
+            <button type="button" class="btn-close" onclick="app.closeRedundancyModal()">✕</button>
+          </div>
+          
+          <div class="modal-body" style="padding: 10px 0;">
+            <p class="wizard-p" style="margin-bottom: 20px;">We detected overlapping subscription services in the same category. Compare them side-by-side and choose how to optimize your spend.</p>
+            
+            <div class="redundancy-comparison-container">
+              <!-- Side 1: Sub 1 -->
+              <div class="redundancy-compare-card" id="redundancy-compare-left">
+                <!-- Filled dynamically -->
+              </div>
+              
+              <!-- VS Separator -->
+              <div style="display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 11px; color: var(--text-tertiary); padding: 0 4px;">VS</div>
+              
+              <!-- Side 2: Sub 2 -->
+              <div class="redundancy-compare-card" id="redundancy-compare-right">
+                <!-- Filled dynamically -->
+              </div>
+            </div>
+            
+            <div class="notif-actions-stack" id="redundancy-actions-stack">
+              <!-- Dynamically populated buttons -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL: GMAIL SCANNER -->
+      <div class="modal-overlay" id="gmail-scanner-modal">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>Scan Inbox Receipts</h3>
+            <button class="btn-close" onclick="app.closeGmailModal()">✕</button>
+          </div>
+          
+          <!-- Step 1: Connect -->
+          <div class="gmail-step" id="gmail-step-connect">
+            <p>Subscript extracts only the headers (sender email, subject, date, price) from billing receipts to identify subscriptions automatically.</p>
+            <div class="auth-box">
+              <div class="auth-icon">
+                <!-- Lock -->
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+              </div>
+              <h4>Secure OAuth Link</h4>
+              <p class="text-muted">Subscript never stores email body content or passwords.</p>
+            </div>
+            <button class="btn btn-primary w-100" onclick="app.startGmailScan()">Connect & Scan Inbox</button>
+          </div>
+
+          <!-- Step 2: Scanning Animation -->
+          <div class="gmail-step d-none" id="gmail-step-scanning">
+            <div class="scanning-wrapper">
+              <div class="pulse-ring"></div>
+              <svg class="scanning-email-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+              </svg>
+            </div>
+            <h4 class="scanning-status" id="scanning-status-text">Connecting to mail servers...</h4>
+            <div class="scan-progress-bar">
+              <div class="scan-progress-fill" id="scan-progress-fill"></div>
+            </div>
+            <div class="detected-log" id="detected-log">
+              <!-- Logging items in real-time -->
+            </div>
+          </div>
+
+          <!-- Step 3: Review Results -->
+          <div class="gmail-step d-none" id="gmail-step-results">
+            <p>We found <strong><span id="detected-count">0</span></strong> subscriptions in your email. Uncheck any you do not want to add.</p>
+            <div class="detected-list" id="detected-list-container">
+              <!-- Detected subs checkboxes list -->
+            </div>
+            <button class="btn btn-primary w-100 m-t-15" onclick="app.importSelectedGmailSubs()">Import Selected (<span id="import-btn-count">0</span>)</button>
+          </div>
+
+        </div>
+      </div> <!-- Gmail Modal End -->
+
+      <!-- MODAL: ONE-CLICK CANCELLATION WIZARD -->
+      <div class="modal-overlay" id="cancel-wizard-modal">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>One-Click Cancellation</h3>
+            <button class="btn-close" onclick="app.closeCancelModal()">✕</button>
+          </div>
+          
+          <div class="wizard-body">
+            <div class="cancel-summary">
+              <div class="cancel-sub-logo" id="cancel-sub-logo">N</div>
+              <div>
+                <div class="cancel-sub-name" id="cancel-sub-name">Netflix</div>
+                <div class="cancel-sub-detail" id="cancel-sub-detail">$15.49/mo • Renews June 14</div>
+              </div>
+            </div>
+
+            <!-- Wizard Stage 1: Intro -->
+            <div class="wizard-stage" id="cancel-stage-intro">
+              <p class="wizard-p">Cancel this subscription instantly. We can run an automated script (Concierge Agent) to resolve this request directly with the provider, or generate a high-priority legal cancellation draft.</p>
+              
+              <div class="cancel-option-card" onclick="app.startAutoCancel()">
+                <div class="option-icon">🤖</div>
+                <div class="option-content">
+                  <h4>Run Auto-Concierge Agent (Recommended)</h4>
+                  <p>Simulate an AI bot to click through cancellation flows, bypass retention screens, and file the confirmation.</p>
+                </div>
+              </div>
+
+              <div class="cancel-option-card" onclick="app.startManualTemplate()">
+                <div class="option-icon">✉️</div>
+                <div class="option-content">
+                  <h4>Generate Cancellation Email Template</h4>
+                  <p>Draft a legally-binding termination letter targeting the provider's billing inbox.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Wizard Stage 2: Auto-Simulation -->
+            <div class="wizard-stage d-none" id="cancel-stage-auto">
+              <div class="bot-animation">
+                <div class="terminal-header">
+                  <div class="term-dot red"></div>
+                  <div class="term-dot yellow"></div>
+                  <div class="term-dot green"></div>
+                  <span class="term-title">cancellation-agent.sh</span>
+                </div>
+                <div class="terminal-body" id="cancel-terminal-log">
+                  <!-- Log actions simulated -->
+                </div>
+              </div>
+              <div class="bot-status" id="bot-status-text">Initializing termination bot...</div>
+              <div class="scan-progress-bar">
+                <div class="scan-progress-fill" id="cancel-progress-fill"></div>
+              </div>
+            </div>
+
+            <!-- Wizard Stage 3: Legal Template -->
+            <div class="wizard-stage d-none" id="cancel-stage-template">
+              <p class="wizard-p">Copy the formal letter below and send it to <strong id="cancel-email-recipient">support@netflix.com</strong>.</p>
+              <div class="email-template-box">
+                <pre id="cancel-email-body"></pre>
+              </div>
+              <button class="btn btn-secondary w-100" onclick="app.copyEmailTemplate()">Copy Email Text</button>
+              <button class="btn btn-primary w-100 m-t-10" onclick="app.markAsCancelledByEmail()">I've Sent the Email</button>
+            </div>
+
+            <!-- Wizard Stage 4: Success -->
+            <div class="wizard-stage d-none" id="cancel-stage-success">
+              <div class="success-checkmark">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </div>
+              <h4>Cancellation In Progress</h4>
+              <p class="text-center text-muted" id="cancel-success-message">A request has been filed. We'll update the status once Netflix registers the cancellation.</p>
+              <button class="btn btn-primary w-100 m-t-15" onclick="app.closeCancelModal()">Done</button>
+            </div>
+
+          </div>
+        </div>
+      </div> <!-- Cancel Modal End -->
+
+      <!-- MODAL: TEAM INVITE -->
+      <div class="modal-overlay" id="team-invite-modal">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>Invite Team Members</h3>
+            <button class="btn-close" onclick="app.closeInviteModal()">✕</button>
+          </div>
+          <p>Invite colleagues to share your <strong>Office Stack</strong>. Max 3 seats for small teams.</p>
+          
+          <form onsubmit="app.handleInviteMember(event)">
+            <div class="form-group">
+              <label for="invite-name">Teammate Name</label>
+              <input type="text" id="invite-name" placeholder="e.g. Sarah Connor" required>
+            </div>
+            <div class="form-group">
+              <label for="invite-email">Teammate Email</label>
+              <input type="email" id="invite-email" placeholder="e.g. sarah@office.co" required>
+            </div>
+            <div class="form-group">
+              <label for="invite-role">Role</label>
+              <select id="invite-role">
+                <option value="Admin">Admin</option>
+                <option value="Viewer">Viewer</option>
+                <option value="Contributor">Contributor</option>
+              </select>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Send Invite</button>
+          </form>
+          
+          <div class="current-teammates-box">
+            <h4>Active Seats (<span id="active-seats-count">1</span>/4)</h4>
+            <div class="teammates-list" id="teammates-list">
+              <!-- Teammates rendered here -->
+            </div>
+          </div>
+        </div>
+      </div> <!-- Team Invite Modal End -->
+
+      <!-- MODAL: NOTIFICATION / ALERT HISTORY -->
+      <div class="modal-overlay" id="notification-modal">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>Alert Notifications</h3>
+            <button class="btn-close" onclick="app.closeNotificationModal()">✕</button>
+          </div>
+          <div class="notifications-list" id="notifications-list-container">
+            <!-- Notification logs -->
+          </div>
+          <button class="btn btn-secondary w-100 m-t-15" onclick="app.clearNotifications()">Clear All</button>
+        </div>
+      </div> <!-- Notifications Modal End -->
+
+      <!-- POPUP NOTIFICATION (TOAST) -->
+      <div class="toast-notification" id="toast-notification">
+        <div class="toast-icon" id="toast-icon">🔔</div>
+        <div class="toast-content">
+          <div class="toast-title" id="toast-title">Notification</div>
+          <div class="toast-body" id="toast-body">Description here</div>
+        </div>
+        <button class="toast-close" onclick="app.hideToast()">✕</button>
+      </div>
+
+      <!-- ONBOARDING FLOW SCREEN -->
+      <div class="onboarding-screen" id="onboarding-screen" style="display: none;">
+        <!-- Injected dynamically by JS -->
+      </div>
+
+      <!-- Home Indicator bar (Mimics iOS style) -->
+      <div class="phone-home-indicator"></div>
+
+    </div> <!-- Phone Frame End -->
+
+  </div> <!-- Global App Container End -->
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

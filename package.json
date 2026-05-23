@@ -1,0 +1,8 @@
+{
+  "name": "subscript",
+  "version": "1.0.0",
+  "description": "Centralized Subscription Tracker",
+  "scripts": {
+    "dev": "npx -y vite"
+  }
+}

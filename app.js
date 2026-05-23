@@ -1,0 +1,2720 @@
+/**
+ * Subscript - Core Application Logic
+ */
+
+class SubscriptApp {
+  constructor() {
+    this.currentTab = 'list';
+    this.currentScope = 'personal'; // 'personal' or 'team'
+    
+    // Calendar state
+    this.calendarYear = 2026;
+    this.calendarMonth = 4; // May (0-indexed, so 4 is May)
+    
+    // Core state
+    this.dismissedRedundancies = JSON.parse(localStorage.getItem('subscript_dismissed_redundancies')) || [];
+
+    const defaultSubs = [
+      {
+        id: 1,
+        name: 'Netflix',
+        price: 15.49,
+        cycle: 'monthly',
+        category: 'Entertainment',
+        nextRenewal: '2026-05-28',
+        isTrial: false,
+        trialEnd: null,
+        isCancelled: false,
+        isTeam: false,
+        owner: 'Alex (You)',
+        priceHike: {
+          originalPrice: 13.49,
+          newPrice: 15.49,
+          date: '2026-05-01'
+        }
+      },
+      {
+        id: 2,
+        name: 'Spotify',
+        price: 10.99,
+        cycle: 'monthly',
+        category: 'Music',
+        nextRenewal: '2026-06-04',
+        isTrial: false,
+        trialEnd: null,
+        isCancelled: false,
+        isTeam: false,
+        owner: 'Alex (You)',
+        priceHike: null
+      },
+      {
+        id: 3,
+        name: 'Apple Music',
+        price: 10.99,
+        cycle: 'monthly',
+        category: 'Music',
+        nextRenewal: '2026-06-10',
+        isTrial: false,
+        trialEnd: null,
+        isCancelled: false,
+        isTeam: false,
+        owner: 'Alex (You)',
+        priceHike: null
+      },
+      {
+        id: 4,
+        name: 'Figma Pro',
+        price: 15.00,
+        cycle: 'monthly',
+        category: 'SaaS & Dev Tools',
+        nextRenewal: '2026-05-24', // Tomorrow relative to May 23, 2026
+        isTrial: true,
+        trialEnd: '2026-05-23', // Ends today!
+        isCancelled: false,
+        isTeam: false,
+        owner: 'Alex (You)',
+        priceHike: null
+      },
+      {
+        id: 5,
+        name: 'Notion Plus',
+        price: 8.00,
+        cycle: 'monthly',
+        category: 'Productivity',
+        nextRenewal: '2026-06-14',
+        isTrial: false,
+        trialEnd: null,
+        isCancelled: false,
+        isTeam: false,
+        owner: 'Alex (You)',
+        priceHike: null
+      },
+      // Team Stack Subs
+      {
+        id: 101,
+        name: 'Slack Pro',
+        price: 26.25, // 3 seats
+        cycle: 'monthly',
+        category: 'SaaS & Dev Tools',
+        nextRenewal: '2026-06-02',
+        isTrial: false,
+        trialEnd: null,
+        isCancelled: false,
+        isTeam: true,
+        owner: 'Alex (You)',
+        priceHike: null
+      },
+      {
+        id: 102,
+        name: 'Vercel Team',
+        price: 20.00,
+        cycle: 'monthly',
+        category: 'SaaS & Dev Tools',
+        nextRenewal: '2026-06-07',
+        isTrial: false,
+        trialEnd: null,
+        isCancelled: false,
+        isTeam: true,
+        owner: 'Sarah Connor',
+        priceHike: null
+      },
+      {
+        id: 103,
+        name: 'ChatGPT Plus',
+        price: 20.00,
+        cycle: 'monthly',
+        category: 'Productivity',
+        nextRenewal: '2026-05-26',
+        isTrial: false,
+        trialEnd: null,
+        isCancelled: false,
+        isTeam: true,
+        owner: 'Mike (PM)',
+        priceHike: {
+          originalPrice: 0.00, // Upgraded from free
+          newPrice: 20.00,
+          date: '2026-05-15'
+        }
+      }
+    ];
+
+    this.subscriptions = JSON.parse(localStorage.getItem('subscript_subscriptions')) || defaultSubs;
+
+    // Load or initialize Virtual Cards
+    const defaultCards = [
+      { id: 'c1', name: 'Personal Card', digits: '•••• •••• •••• 8899', expiry: '09/29', limit: 50.00, scope: 'personal' },
+      { id: 'c2', name: 'Team SaaS Card', digits: '•••• •••• •••• 4321', expiry: '12/28', limit: 150.00, scope: 'team' }
+    ];
+    this.virtualCards = JSON.parse(localStorage.getItem('subscript_virtual_cards')) || defaultCards;
+    this.selectedCardId = this.virtualCards[0].id;
+
+    // Standardize saved subscriptions with default card bindings & seat ratios
+    this.subscriptions.forEach(sub => {
+      if (!sub.cardId) {
+        sub.cardId = sub.isTeam ? 'c2' : 'c1';
+      }
+      if (sub.isTeam) {
+        if (sub.seatsPurchased === undefined) {
+          if (sub.name === 'Slack Pro') {
+            sub.seatsPurchased = 3; sub.seatsAssigned = 2; sub.pricePerSeat = 8.75;
+          } else if (sub.name === 'ChatGPT Plus') {
+            sub.seatsPurchased = 2; sub.seatsAssigned = 1; sub.pricePerSeat = 10.00;
+          } else {
+            sub.seatsPurchased = 1; sub.seatsAssigned = 1; sub.pricePerSeat = parseFloat(sub.price);
+          }
+        }
+      }
+    });
+
+    this.teammates = [
+      { id: 't1', name: 'Alex (You)', email: 'alex@office.co', role: 'Owner', status: 'active' },
+      { id: 't2', name: 'Sarah Connor', email: 'sarah@office.co', role: 'Admin', status: 'active' },
+      { id: 't3', name: 'Mike (PM)', email: 'mike@office.co', role: 'Contributor', status: 'active' }
+    ];
+
+    const defaultNotifs = [
+      {
+        id: 'n1',
+        type: 'trial',
+        title: 'Trial Expiring Tomorrow',
+        desc: 'Your Figma Pro free trial ends in 24 hours. A $15.00 charge will apply on May 24.',
+        time: 'Just now',
+        subId: 4
+      },
+      {
+        id: 'n2',
+        type: 'price-hike',
+        title: 'Price Increase: Netflix',
+        desc: 'Netflix increased its rate from $13.49 to $15.49 (+$2.00/mo) starting this billing cycle.',
+        time: '2 hours ago',
+        subId: 1
+      }
+    ];
+
+    this.notifications = JSON.parse(localStorage.getItem('subscript_notifications')) || defaultNotifs;
+
+    this.gmailScannable = [
+      { name: 'Adobe Creative Cloud', price: 54.99, cycle: 'monthly', category: 'Productivity' },
+      { name: 'AWS Cloud Services', price: 12.50, cycle: 'monthly', category: 'Utilities' },
+      { name: 'Google One 100GB', price: 1.99, cycle: 'monthly', category: 'Utilities' },
+      { name: 'Zoom Pro', price: 14.99, cycle: 'monthly', category: 'SaaS & Dev Tools' }
+    ];
+
+    this.selectedDetectedSubs = [];
+    this.activeCancelSub = null;
+    this.cancelTimer = null;
+    this.activeTimeouts = [];
+    
+    // Check if onboarding is completed
+    this.onboardingCompleted = localStorage.getItem('subscript_onboarding_completed') === 'true';
+    this.onboardingBranch = null;
+    this.onboardingStep = 1;
+    this.selectedOnboardingPresets = [];
+    
+    // UI Helpers
+    this.initTime();
+    this.renderAll();
+
+    if (!this.onboardingCompleted) {
+      this.startOnboarding();
+    } else {
+      setTimeout(() => {
+        // Only trigger initial Figma Pro toast if notifications list has it
+        const hasFigmaAlert = this.notifications.some(n => n.subId === 4 && n.type === 'trial');
+        if (hasFigmaAlert) {
+          this.showToast('🚨 Trial Ending', 'Figma Pro trial charges in 24 hours. Click to manage.', 4);
+        }
+      }, 1500);
+    }
+  }
+
+  // Update Status Bar Time
+  initTime() {
+    const updateTime = () => {
+      const date = new Date();
+      let hours = date.getHours();
+      let minutes = date.getMinutes();
+      hours = hours < 10 ? '0' + hours : hours;
+      minutes = minutes < 10 ? '0' + minutes : minutes;
+      const element = document.getElementById('status-time');
+      if (element) {
+        element.innerText = `${hours}:${minutes}`;
+      }
+    };
+    updateTime();
+    setInterval(updateTime, 60000);
+  }
+
+  // CORE RENDER METHOD
+  renderAll() {
+    this.updateMetrics();
+    this.renderAlertsSection();
+    this.renderSubscriptionsList();
+    this.renderCalendarHeatmap();
+    this.renderUpcomingOutflows();
+    this.renderAnalytics();
+    this.updateTeammatesUI();
+    this.renderTeamBar();
+    this.updateNotificationDot();
+    this.renderSpendTrendChart();
+    this.renderSeatUsageAnalyzer();
+    this.renderWallet();
+    this.updateCardDropdown();
+  }
+
+  saveState() {
+    localStorage.setItem('subscript_subscriptions', JSON.stringify(this.subscriptions));
+    localStorage.setItem('subscript_notifications', JSON.stringify(this.notifications));
+    localStorage.setItem('subscript_dismissed_redundancies', JSON.stringify(this.dismissedRedundancies));
+    localStorage.setItem('subscript_virtual_cards', JSON.stringify(this.virtualCards));
+  }
+
+  // Financial Metrics: Monthly Burn & Annualized Projection
+  updateMetrics() {
+    // Filter active (not cancelled) subscriptions matching current scope
+    const activeSubs = this.subscriptions.filter(sub => {
+      const matchesScope = this.currentScope === 'team' ? sub.isTeam : !sub.isTeam;
+      return matchesScope && !sub.isCancelled;
+    });
+
+    let totalMonthly = 0;
+    activeSubs.forEach(sub => {
+      const price = parseFloat(sub.price);
+      if (sub.cycle === 'monthly') {
+        totalMonthly += price;
+      } else {
+        totalMonthly += (price / 12);
+      }
+    });
+
+    const totalAnnual = totalMonthly * 12;
+
+    document.getElementById('total-monthly-burn').innerText = `$${totalMonthly.toFixed(2)}`;
+    document.getElementById('total-annual-burn').innerText = `$${totalAnnual.toFixed(2)}`;
+  }
+
+  // Renders the alerts section on dashboard
+  renderAlertsSection() {
+    const container = document.getElementById('alerts-section');
+    if (!container) return;
+    container.innerHTML = '';
+
+    // 1. Redundancy Alerts
+    const duplicates = this.detectRedundancies();
+    duplicates.forEach(dup => {
+      const card = document.createElement('div');
+      card.className = 'alert-card alert-redundancy';
+      card.innerHTML = `
+        <span class="alert-icon">⚠️</span>
+        <div class="alert-content">
+          <div class="alert-title">Redundant Services Detected</div>
+          <div class="alert-desc">You are paying for both <strong>${dup.sub1.name}</strong> and <strong>${dup.sub2.name}</strong> (${dup.sub1.category}). Do you need both?</div>
+          <button class="alert-action-btn" onclick="app.openRedundancyReview(${dup.sub1.id}, ${dup.sub2.id})">Review Analytics</button>
+        </div>
+        <button class="alert-close" onclick="this.parentElement.remove()">✕</button>
+      `;
+      container.appendChild(card);
+    });
+
+    // 2. Price Hikes (only for active subs in current scope)
+    const activeSubs = this.subscriptions.filter(s => !s.isCancelled && (this.currentScope === 'team' ? s.isTeam : !s.isTeam));
+    activeSubs.forEach(sub => {
+      if (sub.priceHike) {
+        const diff = sub.priceHike.newPrice - sub.priceHike.originalPrice;
+        const diffText = diff > 0 ? `increased by $${diff.toFixed(2)}/mo` : `decreased by $${Math.abs(diff).toFixed(2)}/mo`;
+        const card = document.createElement('div');
+        card.className = 'alert-card alert-price-hike';
+        card.innerHTML = `
+          <span class="alert-icon">📈</span>
+          <div class="alert-content">
+            <div class="alert-title">Price Update: ${sub.name}</div>
+            <div class="alert-desc">Rate updated from $${sub.priceHike.originalPrice.toFixed(2)} to $${sub.priceHike.newPrice.toFixed(2)} (${diffText}).</div>
+          </div>
+          <button class="alert-close" onclick="this.parentElement.remove()">✕</button>
+        `;
+        container.appendChild(card);
+      }
+    });
+
+    // 3. Trial countdown alert (within 24 hours)
+    const trialSubs = activeSubs.filter(s => s.isTrial);
+    trialSubs.forEach(sub => {
+      if (sub.trialEnd) {
+        const end = new Date(sub.trialEnd);
+        const today = new Date('2026-05-23'); // Hardcoded simulated today
+        const msDiff = end.getTime() - today.getTime();
+        const daysDiff = Math.ceil(msDiff / (1000 * 60 * 60 * 24));
+        
+        if (daysDiff >= 0 && daysDiff <= 1) {
+          const card = document.createElement('div');
+          card.className = 'alert-card alert-trial';
+          card.innerHTML = `
+            <span class="alert-icon">⏳</span>
+            <div class="alert-content">
+              <div class="alert-title">Free Trial Countdown</div>
+              <div class="alert-desc"><strong>${sub.name}</strong> trial ends in 24 hours. A recurring cost of $${sub.price.toFixed(2)}/mo starts tomorrow.</div>
+              <button class="alert-action-btn" onclick="app.openCancelWizard(${sub.id})">Cancel Sub</button>
+            </div>
+            <button class="alert-close" onclick="this.parentElement.remove()">✕</button>
+          `;
+          container.appendChild(card);
+        } else if (daysDiff < 0) {
+          const card = document.createElement('div');
+          card.className = 'alert-card alert-trial expired';
+          card.innerHTML = `
+            <span class="alert-icon">🚨</span>
+            <div class="alert-content">
+              <div class="alert-title">Trial Expired: ${sub.name}</div>
+              <div class="alert-desc">Your free trial ended on ${this.formatDate(sub.trialEnd)}. You are now being charged $${sub.price.toFixed(2)}/mo.</div>
+              <button class="alert-action-btn" onclick="app.openCancelWizard(${sub.id})">Cancel Sub</button>
+            </div>
+            <button class="alert-close" onclick="this.parentElement.remove()">✕</button>
+          `;
+          container.appendChild(card);
+        }
+      }
+    });
+  }
+
+  // Render list of active/cancelled subscriptions
+  renderSubscriptionsList() {
+    const container = document.getElementById('subs-list-container');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const query = document.getElementById('search-input') ? document.getElementById('search-input').value.toLowerCase() : '';
+
+    const filtered = this.subscriptions.filter(sub => {
+      const matchesScope = this.currentScope === 'team' ? sub.isTeam : !sub.isTeam;
+      const matchesSearch = sub.name.toLowerCase().includes(query) || sub.category.toLowerCase().includes(query);
+      return matchesScope && matchesSearch;
+    });
+
+    if (filtered.length === 0) {
+      container.innerHTML = `<div class="text-center text-muted" style="padding: 40px 0; font-size:13px;">No subscriptions found.</div>`;
+      return;
+    }
+
+    filtered.forEach(sub => {
+      const item = document.createElement('div');
+      item.className = `sub-item ${sub.isCancelled ? 'cancelled-style' : ''}`;
+      
+      const badgeHTML = sub.isTrial 
+        ? `<span class="sub-badge trial">Trial</span>` 
+        : (this.currentScope === 'team' ? `<span class="sub-badge team-owner">${sub.owner.split(' ')[0]}</span>` : '');
+
+      const cancelBtnHTML = sub.isCancelled
+        ? `<div class="cancelled-actions-row">
+             <span class="status-cancelled-badge">Cancelled</span>
+             <button type="button" class="btn-reactivate-sub" onclick="app.reactivateSubscription(${sub.id})" title="Reactivate subscription">Reactivate</button>
+             <button type="button" class="btn-delete-sub" onclick="app.deleteSubscription(${sub.id})" title="Delete permanently">✕</button>
+           </div>`
+        : `<button class="btn-cancel-action" onclick="app.openCancelWizard(${sub.id})">Cancel</button>`;
+
+      const priceDisplay = sub.isTrial && !sub.isCancelled ? 'Free' : `$${parseFloat(sub.price).toFixed(2)}`;
+
+      item.innerHTML = `
+        <div class="sub-item-left">
+          <div class="sub-logo">${sub.name.charAt(0)}</div>
+          <div class="sub-info">
+            <h3>${sub.name}</h3>
+            <div class="sub-meta">
+              <span>${sub.category}</span> • 
+              <span>${sub.isCancelled ? 'Ended' : 'Renews ' + this.formatDate(sub.nextRenewal)}</span>
+              ${badgeHTML}
+            </div>
+          </div>
+        </div>
+        <div class="sub-item-right">
+          <div class="sub-price">${priceDisplay}</div>
+          <div class="sub-interval">${sub.cycle === 'monthly' ? '/mo' : '/yr'}</div>
+          ${cancelBtnHTML}
+        </div>
+      `;
+      container.appendChild(item);
+    });
+  }
+
+  // Filter subscriptions when typing
+  filterSubscriptions() {
+    this.renderSubscriptionsList();
+  }
+
+  // Renders the Calendar Heatmap (Grid of Days)
+  renderCalendarHeatmap() {
+    const grid = document.getElementById('calendar-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    // Update Month Display Title
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const monthTitle = document.getElementById('calendar-month-title');
+    if (monthTitle) {
+      monthTitle.innerText = `${monthNames[this.calendarMonth]} ${this.calendarYear}`;
+    }
+
+    // Dynamic month calculations
+    const firstDay = new Date(this.calendarYear, this.calendarMonth, 1);
+    const startDayOfWeek = firstDay.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
+    const totalDays = new Date(this.calendarYear, this.calendarMonth + 1, 0).getDate();
+
+    // Render empty spaces
+    for (let i = 0; i < startDayOfWeek; i++) {
+      const emptyCell = document.createElement('div');
+      emptyCell.className = 'calendar-day level-0';
+      emptyCell.style.opacity = '0.2';
+      grid.appendChild(emptyCell);
+    }
+
+    // Active subscriptions list for checking renewals
+    const activeSubs = this.subscriptions.filter(sub => {
+      const matchesScope = this.currentScope === 'team' ? sub.isTeam : !sub.isTeam;
+      return matchesScope && !sub.isCancelled;
+    });
+
+    // Populate day cells
+    const simulatedTodayStr = '2026-05-23';
+    for (let day = 1; day <= totalDays; day++) {
+      const monthStr = (this.calendarMonth + 1).toString().padStart(2, '0');
+      const dayStr = day.toString().padStart(2, '0');
+      const dateString = `${this.calendarYear}-${monthStr}-${dayStr}`;
+      
+      // Calculate total cost renewing on this day
+      let dailySum = 0;
+      let daySubs = [];
+      activeSubs.forEach(sub => {
+        if (sub.nextRenewal === dateString) {
+          dailySum += parseFloat(sub.price);
+          daySubs.push(sub);
+        }
+      });
+
+      // Shading level based on sum
+      let level = 0;
+      if (dailySum > 0) {
+        if (dailySum <= 12) level = 1;
+        else if (dailySum <= 30) level = 2;
+        else level = 3;
+      }
+
+      const dayCell = document.createElement('div');
+      const isToday = dateString === simulatedTodayStr;
+      dayCell.className = `calendar-day level-${level} ${isToday ? 'today' : ''}`;
+      dayCell.title = dailySum > 0 ? `${daySubs.map(s => s.name).join(', ')} ($${dailySum.toFixed(2)})` : `No renewals`;
+      
+      dayCell.onclick = () => this.highlightOutflowDay(dateString, daySubs);
+
+      dayCell.innerHTML = `
+        <span class="day-num">${day}</span>
+        ${daySubs.length > 0 ? `<div class="day-dot"></div>` : ''}
+      `;
+      grid.appendChild(dayCell);
+    }
+  }
+
+  prevMonth() {
+    this.calendarMonth--;
+    if (this.calendarMonth < 0) {
+      this.calendarMonth = 11;
+      this.calendarYear--;
+    }
+    this.renderCalendarHeatmap();
+  }
+
+  nextMonth() {
+    this.calendarMonth++;
+    if (this.calendarMonth > 11) {
+      this.calendarMonth = 0;
+      this.calendarYear++;
+    }
+    this.renderCalendarHeatmap();
+  }
+
+  // Renders outflows listing under the Calendar
+  renderUpcomingOutflows() {
+    const container = document.getElementById('outflows-list');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const activeSubs = this.subscriptions.filter(sub => {
+      const matchesScope = this.currentScope === 'team' ? sub.isTeam : !sub.isTeam;
+      return matchesScope && !sub.isCancelled;
+    });
+
+    // Sort by renewal date
+    const sorted = [...activeSubs].sort((a, b) => new Date(a.nextRenewal) - new Date(b.nextRenewal));
+
+    if (sorted.length === 0) {
+      container.innerHTML = `<div class="text-center text-muted" style="font-size:11px;">No upcoming renewals.</div>`;
+      return;
+    }
+
+    sorted.forEach(sub => {
+      const item = document.createElement('div');
+      item.className = 'outflow-item';
+      item.innerHTML = `
+        <span class="outflow-date">${this.formatDate(sub.nextRenewal)}</span>
+        <span class="outflow-name">${sub.name}</span>
+        <span class="outflow-price">$${parseFloat(sub.price).toFixed(2)}</span>
+      `;
+      container.appendChild(item);
+    });
+  }
+
+  // Callback when user clicks a day on the calendar
+  highlightOutflowDay(dateStr, subs) {
+    const container = document.getElementById('outflows-list');
+    if (!container) return;
+
+    if (subs.length === 0) {
+      container.innerHTML = `
+        <div class="text-center text-muted" style="padding: 10px 0; font-size:11px;">
+          No renewals on ${this.formatDate(dateStr)}.
+          <br><a href="#" onclick="app.renderUpcomingOutflows(); return false;" style="color:var(--text-secondary); text-decoration:underline;">Show all upcoming</a>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = `
+      <div style="font-size: 11px; color: var(--text-tertiary); margin-bottom: 6px; display:flex; justify-content:space-between; align-items:center;">
+        <span>Selected date: ${this.formatDate(dateStr)}</span>
+        <a href="#" onclick="app.renderUpcomingOutflows(); return false;" style="color:var(--text-primary); font-weight:700; text-decoration:none;">✕ Clear</a>
+      </div>
+    `;
+
+    subs.forEach(sub => {
+      const item = document.createElement('div');
+      item.className = 'outflow-item';
+      item.innerHTML = `
+        <span class="outflow-date">Due Today</span>
+        <span class="outflow-name">${sub.name}</span>
+        <span class="outflow-price">$${parseFloat(sub.price).toFixed(2)}</span>
+      `;
+      container.appendChild(item);
+    });
+  }
+
+  // Renders the insights panel (Redundancy + Analytics)
+  renderAnalytics() {
+    // 1. Redundancy Card
+    const duplicates = this.detectRedundancies();
+    const countBadge = document.getElementById('redundancy-count');
+    const listContainer = document.getElementById('redundancy-list');
+    
+    if (countBadge && listContainer) {
+      countBadge.innerText = `${duplicates.length} alert${duplicates.length === 1 ? '' : 's'}`;
+      listContainer.innerHTML = '';
+      
+      if (duplicates.length === 0) {
+        listContainer.innerHTML = `<div class="text-muted" style="font-size:11px; text-align:center;">No redundant services detected.</div>`;
+      } else {
+        duplicates.forEach(dup => {
+          const item = document.createElement('div');
+          item.className = 'redundancy-item';
+          item.innerHTML = `
+            <div class="redundancy-warning-header">Overlap Found</div>
+            <div class="redundancy-subs">
+              <span><strong>${dup.sub1.name}</strong> vs <strong>${dup.sub2.name}</strong></span>
+              <button class="btn-cancel-action" onclick="app.openRedundancyReview(${dup.sub1.id}, ${dup.sub2.id})">Compare & Resolve</button>
+            </div>
+          `;
+          listContainer.appendChild(item);
+        });
+      }
+    }
+
+    // 2. Category distribution
+    const catContainer = document.getElementById('category-breakdown');
+    if (catContainer) {
+      catContainer.innerHTML = '';
+      const activeSubs = this.subscriptions.filter(sub => {
+        const matchesScope = this.currentScope === 'team' ? sub.isTeam : !sub.isTeam;
+        return matchesScope && !sub.isCancelled;
+      });
+
+      // Group by category
+      const categories = {};
+      let totalSpent = 0;
+      activeSubs.forEach(sub => {
+        const price = parseFloat(sub.price);
+        const monthly = sub.cycle === 'monthly' ? price : (price / 12);
+        categories[sub.category] = (categories[sub.category] || 0) + monthly;
+        totalSpent += monthly;
+      });
+
+      if (totalSpent === 0) {
+        catContainer.innerHTML = `<div class="text-muted" style="font-size:11px; text-align:center; padding:15px 0;">No active subscriptions.</div>`;
+      } else {
+        Object.entries(categories).sort((a,b) => b[1] - a[1]).forEach(([name, amount]) => {
+          const percentage = (amount / totalSpent) * 100;
+          const row = document.createElement('div');
+          row.className = 'cat-row';
+          row.innerHTML = `
+            <div class="cat-labels">
+              <span class="cat-name">${name}</span>
+              <span class="cat-amt">$${amount.toFixed(2)}/mo (${percentage.toFixed(0)}%)</span>
+            </div>
+            <div class="cat-bar-bg">
+              <div class="cat-bar-fill" style="width: ${percentage}%"></div>
+            </div>
+          `;
+          catContainer.appendChild(row);
+        });
+      }
+    }
+
+    // 3. Stats widgets
+    const activeSubs = this.subscriptions.filter(s => !s.isCancelled && (this.currentScope === 'team' ? s.isTeam : !s.isTeam));
+    const totalCount = activeSubs.length;
+    const trialCount = activeSubs.filter(s => s.isTrial).length;
+
+    document.getElementById('stats-total-subs').innerText = totalCount;
+    document.getElementById('stats-trial-subs').innerText = trialCount;
+  }
+
+  // Redundancy detector logic (e.g. overlap in category keywords or pre-defined duplicate pairs)
+  detectRedundancies() {
+    const duplicates = [];
+    const isTeamScope = this.currentScope === 'team';
+    const activeSubs = this.subscriptions.filter(s => !s.isCancelled && (isTeamScope ? s.isTeam : !s.isTeam));
+    
+    // Check specific pairs
+    const checkPair = (name1, name2) => {
+      const sub1 = activeSubs.find(s => s.name.toLowerCase() === name1.toLowerCase());
+      const sub2 = activeSubs.find(s => s.name.toLowerCase() === name2.toLowerCase());
+      if (sub1 && sub2) {
+        const isDismissed = this.dismissedRedundancies.some(pair => 
+          (pair.includes(sub1.id) && pair.includes(sub2.id))
+        );
+        if (!isDismissed) {
+          duplicates.push({ sub1, sub2 });
+        }
+      }
+    };
+
+    if (isTeamScope) {
+      checkPair('Slack Pro', 'Microsoft Teams');
+      checkPair('ChatGPT Plus', 'Claude Pro');
+      checkPair('Zoom Pro', 'Google Meet');
+    } else {
+      checkPair('Spotify', 'Apple Music');
+      checkPair('Netflix', 'Prime Video');
+    }
+    return duplicates;
+  }
+
+  // Toggle Trial End Date field depending on checkbox
+  toggleTrialDate(checkbox) {
+    const trialGroup = document.getElementById('trial-date-group');
+    const renewalGroup = document.getElementById('renewal-date-group');
+    if (checkbox.checked) {
+      trialGroup.style.display = 'block';
+      renewalGroup.style.display = 'none';
+      document.getElementById('sub-trial-end').required = true;
+      document.getElementById('sub-renewal-date').required = false;
+    } else {
+      trialGroup.style.display = 'none';
+      renewalGroup.style.display = 'block';
+      document.getElementById('sub-trial-end').required = false;
+      document.getElementById('sub-renewal-date').required = true;
+    }
+  }
+
+  // Add subscription form submit handler
+  handleAddSubscription(event) {
+    event.preventDefault();
+    
+    const name = document.getElementById('sub-name').value;
+    const price = parseFloat(document.getElementById('sub-price').value);
+    const cycle = document.getElementById('sub-cycle').value;
+    const category = document.getElementById('sub-category').value;
+    const isTrial = document.getElementById('sub-is-trial').checked;
+    const cardSelect = document.getElementById('sub-card-binding');
+    const cardId = cardSelect ? cardSelect.value : (this.currentScope === 'team' ? 'c2' : 'c1');
+    
+    const isTeam = this.currentScope === 'team';
+    const exists = this.subscriptions.find(s => s.name.toLowerCase() === name.toLowerCase() && s.isTeam === isTeam && !s.isCancelled);
+    if (exists) {
+      alert(`An active subscription for "${name}" already exists in your ${this.currentScope} stack.`);
+      return;
+    }
+
+    let nextRenewal = '';
+    let trialEnd = null;
+
+    if (isTrial) {
+      trialEnd = document.getElementById('sub-trial-end').value;
+      // Renewal starts the day after trial ends
+      const date = new Date(trialEnd);
+      date.setDate(date.getDate() + 1);
+      nextRenewal = date.toISOString().split('T')[0];
+    } else {
+      nextRenewal = document.getElementById('sub-renewal-date').value;
+    }
+
+    const newSub = {
+      id: Date.now(),
+      name,
+      price,
+      cycle,
+      category,
+      nextRenewal,
+      isTrial,
+      trialEnd,
+      isCancelled: false,
+      isTeam: isTeam,
+      owner: 'Alex (You)',
+      priceHike: null,
+      cardId: cardId
+    };
+
+    if (isTeam) {
+      newSub.seatsPurchased = 1;
+      newSub.seatsAssigned = 1;
+      newSub.pricePerSeat = price;
+    }
+
+    this.subscriptions.push(newSub);
+    this.saveState();
+    this.renderAll();
+
+    // Reset Form
+    document.getElementById('add-subscription-form').reset();
+    document.getElementById('trial-date-group').style.display = 'none';
+    document.getElementById('renewal-date-group').style.display = 'block';
+
+    // Show Success Toast
+    this.showToast('✅ Added Subscription', `${name} ($${price.toFixed(2)}) added to your active stack.`, newSub.id);
+    
+    // Switch back to list tab
+    this.switchTab('list');
+  }
+
+  // Switch between Tab Panels
+  switchTab(tabId) {
+    this.currentTab = tabId;
+    
+    // Update tab bar UI
+    document.querySelectorAll('.app-tabs .tab-btn').forEach(btn => {
+      if (btn.getAttribute('data-tab') === tabId) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+
+    // Show panel
+    document.querySelectorAll('.view-panels .tab-panel').forEach(panel => {
+      if (panel.id === `panel-${tabId}`) {
+        panel.classList.add('active');
+      } else {
+        panel.classList.remove('active');
+      }
+    });
+
+    // Special render on calendar view for fresh redraw
+    if (tabId === 'calendar') {
+      this.renderCalendarHeatmap();
+    }
+  }
+
+  // Switch between Personal & Team view scope
+  switchScope(scope) {
+    this.currentScope = scope;
+    const pill = document.getElementById('segment-pill');
+    const buttons = document.querySelectorAll('.segment-btn');
+
+    if (scope === 'team') {
+      pill.style.transform = 'translateX(100%)';
+      buttons[0].classList.remove('active');
+      buttons[1].classList.add('active');
+    } else {
+      pill.style.transform = 'translateX(0)';
+      buttons[0].classList.add('active');
+      buttons[1].classList.remove('active');
+    }
+
+    // Refresh view
+    this.renderAll();
+  }
+
+  // GMAIL SCANNER LOGIC
+  openGmailModal() {
+    document.getElementById('gmail-step-connect').classList.remove('d-none');
+    document.getElementById('gmail-step-scanning').classList.add('d-none');
+    document.getElementById('gmail-step-results').classList.add('d-none');
+    document.getElementById('gmail-scanner-modal').classList.add('active');
+  }
+
+  closeGmailModal() {
+    document.getElementById('gmail-scanner-modal').classList.remove('active');
+    this.clearActiveTimeouts();
+  }
+
+  startGmailScan() {
+    document.getElementById('gmail-step-connect').classList.add('d-none');
+    document.getElementById('gmail-step-scanning').classList.remove('d-none');
+    
+    const fill = document.getElementById('scan-progress-fill');
+    const statusText = document.getElementById('scanning-status-text');
+    const logger = document.getElementById('detected-log');
+    
+    fill.style.width = '0%';
+    logger.innerHTML = '';
+
+    const logs = [
+      { text: 'Connecting to mail.google.com IMAP secure servers...', delay: 400 },
+      { text: 'Accessing OAuth credentials token...', delay: 800 },
+      { text: 'Searching emails with queries: "invoice", "receipt", "subscription"...', delay: 1400 },
+      { text: 'Found Adobe Receipt (Adobe Creative Cloud) - billing@adobe.com', delay: 2000, detected: 0 },
+      { text: 'Found Amazon Web Services invoice (AWS Cloud Services) - billing@amazon.com', delay: 2600, detected: 1 },
+      { text: 'Found Google Pay receipt (Google One 100GB) - payments-noreply@google.com', delay: 3400, detected: 2 },
+      { text: 'Found Zoom Invoice (Zoom Pro) - billing@zoom.us', delay: 4000, detected: 3 },
+      { text: 'Parsing metadata, tax statements, and price levels...', delay: 4600 },
+      { text: 'Analyzing recurrence interval tokens...', delay: 5200 },
+      { text: 'Scan complete! 4 matches detected.', delay: 5800 }
+    ];
+
+    logs.forEach(log => {
+      this.scheduleTimeout(() => {
+        const item = document.createElement('div');
+        item.className = 'detected-log-item';
+        
+        if (log.detected !== undefined) {
+          item.className = 'detected-log-item success';
+          item.innerText = `🔍 DETECTED: ${this.gmailScannable[log.detected].name} ($${this.gmailScannable[log.detected].price.toFixed(2)}/mo)`;
+        } else {
+          item.innerText = `> ${log.text}`;
+        }
+        
+        logger.appendChild(item);
+        logger.scrollTop = logger.scrollHeight;
+
+        // Update progress bar percentage
+        const pct = (log.delay / 5800) * 100;
+        fill.style.width = `${pct}%`;
+
+        // Update status text
+        if (log.delay < 1500) statusText.innerText = 'Connecting to Google API...';
+        else if (log.delay < 4500) statusText.innerText = 'Analyzing invoice receipts...';
+        else statusText.innerText = 'Compiling list...';
+
+      }, log.delay);
+    });
+
+    // Complete scan -> show results
+    this.scheduleTimeout(() => {
+      this.renderDetectedGmailList();
+      document.getElementById('gmail-step-scanning').classList.add('d-none');
+      document.getElementById('gmail-step-results').classList.remove('d-none');
+    }, 6200);
+  }
+
+  renderDetectedGmailList() {
+    const container = document.getElementById('detected-list-container');
+    container.innerHTML = '';
+    this.selectedDetectedSubs = [...this.gmailScannable]; // default select all
+
+    this.gmailScannable.forEach((sub, idx) => {
+      const rowContainer = document.createElement('div');
+      rowContainer.className = 'detected-item-row-container';
+      rowContainer.style.border = '1px solid var(--border-color)';
+      rowContainer.style.borderRadius = 'var(--radius-sm)';
+      rowContainer.style.marginBottom = '8px';
+      rowContainer.style.backgroundColor = 'var(--bg-card)';
+
+      rowContainer.innerHTML = `
+        <div class="detected-item" style="display: flex; justify-content: space-between; align-items: center; padding: 12px;">
+          <div class="detected-item-left">
+            <label class="checkbox-container">
+              <input type="checkbox" checked onchange="app.toggleDetectedSubSelection(${idx}, this)">
+              <span class="checkmark"></span>
+              <div>
+                <div class="detected-item-name" id="name-display-${idx}">${sub.name}</div>
+                <div class="detected-item-price" id="meta-display-${idx}">$${sub.price.toFixed(2)}/mo • Category: ${sub.category}</div>
+              </div>
+            </label>
+          </div>
+          <div class="detected-item-edit-trigger" onclick="app.toggleScanAccordion(${idx})" style="padding: 4px; cursor: pointer; display: flex; align-items: center;">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="arrow-${idx}" style="transition: transform 0.2s ease;">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </div>
+        </div>
+        
+        <div class="detected-item-edit-panel" id="panel-${idx}">
+          <div class="detected-edit-row">
+            <div class="detected-edit-group">
+              <label>Name</label>
+              <input type="text" value="${sub.name}" oninput="app.updateScanItem(${idx}, 'name', this.value)">
+            </div>
+            <div class="detected-edit-group">
+              <label>Price ($)</label>
+              <input type="number" step="0.01" value="${sub.price}" oninput="app.updateScanItem(${idx}, 'price', this.value)">
+            </div>
+          </div>
+          <div class="detected-edit-row">
+            <div class="detected-edit-group">
+              <label>Category</label>
+              <select onchange="app.updateScanItem(${idx}, 'category', this.value)">
+                <option value="Entertainment" ${sub.category === 'Entertainment' ? 'selected' : ''}>Entertainment</option>
+                <option value="SaaS & Dev Tools" ${sub.category === 'SaaS & Dev Tools' ? 'selected' : ''}>SaaS & Dev Tools</option>
+                <option value="Productivity" ${sub.category === 'Productivity' ? 'selected' : ''}>Productivity</option>
+                <option value="Utilities" ${sub.category === 'Utilities' ? 'selected' : ''}>Utilities</option>
+                <option value="Music" ${sub.category === 'Music' ? 'selected' : ''}>Music</option>
+                <option value="Other" ${sub.category === 'Other' ? 'selected' : ''}>Other</option>
+              </select>
+            </div>
+            <div class="detected-edit-group">
+              <label>Billing Cycle</label>
+              <select onchange="app.updateScanItem(${idx}, 'cycle', this.value)">
+                <option value="monthly" ${(sub.cycle || 'monthly') === 'monthly' ? 'selected' : ''}>Monthly</option>
+                <option value="yearly" ${(sub.cycle || 'monthly') === 'yearly' ? 'selected' : ''}>Yearly</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      `;
+      container.appendChild(rowContainer);
+    });
+
+    document.getElementById('detected-count').innerText = this.gmailScannable.length;
+    this.updateImportBtnCount();
+  }
+
+  toggleScanAccordion(idx) {
+    const panel = document.getElementById(`panel-${idx}`);
+    const arrow = document.getElementById(`arrow-${idx}`);
+    if (panel) {
+      const isExpanded = panel.style.display === 'flex';
+      panel.style.display = isExpanded ? 'none' : 'flex';
+      if (arrow) {
+        arrow.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(180deg)';
+      }
+    }
+  }
+
+  updateScanItem(idx, field, value) {
+    const sub = this.gmailScannable[idx];
+    if (!sub) return;
+
+    if (field === 'price') {
+      sub.price = parseFloat(value) || 0;
+    } else {
+      sub[field] = value;
+    }
+
+    const nameDisplay = document.getElementById(`name-display-${idx}`);
+    const metaDisplay = document.getElementById(`meta-display-${idx}`);
+
+    if (nameDisplay) nameDisplay.innerText = sub.name;
+    if (metaDisplay) {
+      const cycleText = (sub.cycle || 'monthly') === 'monthly' ? 'mo' : 'yr';
+      metaDisplay.innerText = `$${sub.price.toFixed(2)}/${cycleText} • Category: ${sub.category}`;
+    }
+  }
+
+  toggleDetectedSubSelection(idx, checkbox) {
+    const sub = this.gmailScannable[idx];
+    if (checkbox.checked) {
+      if (!this.selectedDetectedSubs.some(s => s === sub)) {
+        this.selectedDetectedSubs.push(sub);
+      }
+    } else {
+      this.selectedDetectedSubs = this.selectedDetectedSubs.filter(s => s !== sub);
+    }
+    this.updateImportBtnCount();
+  }
+
+  updateImportBtnCount() {
+    const count = this.selectedDetectedSubs.length;
+    document.getElementById('import-btn-count').innerText = count;
+  }
+
+  importSelectedGmailSubs() {
+    this.selectedDetectedSubs.forEach(sub => {
+      // Don't duplicate if already added
+      const exists = this.subscriptions.find(s => s.name === sub.name && !s.isCancelled);
+      if (!exists) {
+        // Set a random renewal date in next 30 days
+        const daysAhead = Math.floor(Math.random() * 25) + 3;
+        const renewalDate = new Date();
+        renewalDate.setDate(renewalDate.getDate() + daysAhead);
+
+        this.subscriptions.push({
+          id: Date.now() + Math.random(),
+          name: sub.name,
+          price: sub.price,
+          cycle: sub.cycle || 'monthly',
+          category: sub.category,
+          nextRenewal: renewalDate.toISOString().split('T')[0],
+          isTrial: false,
+          trialEnd: null,
+          isCancelled: false,
+          isTeam: this.currentScope === 'team',
+          owner: 'Alex (You)',
+          priceHike: null,
+          cardId: this.currentScope === 'team' ? 'c2' : 'c1'
+        });
+      }
+    });
+
+    this.saveState();
+    this.renderAll();
+    this.closeGmailModal();
+    this.showToast('📥 Imports Complete', `Imported ${this.selectedDetectedSubs.length} subscriptions into your stack.`, 'bulk-import');
+    if (!this.onboardingCompleted) {
+      this.completeOnboarding();
+    } else {
+      this.switchTab('list');
+    }
+  }
+
+  // ONE-CLICK CANCELLATION WIZARD LOGIC
+  openCancelWizard(subId) {
+    const sub = this.subscriptions.find(s => s.id === subId);
+    if (!sub) return;
+
+    this.activeCancelSub = sub;
+
+    // Set summary detail
+    document.getElementById('cancel-sub-logo').innerText = sub.name.charAt(0);
+    document.getElementById('cancel-sub-name').innerText = sub.name;
+    document.getElementById('cancel-sub-detail').innerText = `$${parseFloat(sub.price).toFixed(2)}/mo • Renews ${this.formatDate(sub.nextRenewal)}`;
+
+    // Reset stages
+    document.getElementById('cancel-stage-intro').classList.remove('d-none');
+    document.getElementById('cancel-stage-auto').classList.add('d-none');
+    document.getElementById('cancel-stage-template').classList.add('d-none');
+    document.getElementById('cancel-stage-success').classList.add('d-none');
+
+    // Open modal
+    document.getElementById('cancel-wizard-modal').classList.add('active');
+  }
+
+  closeCancelModal() {
+    document.getElementById('cancel-wizard-modal').classList.remove('active');
+    this.clearActiveTimeouts();
+  }
+
+  // Automated Cancel Option
+  startAutoCancel() {
+    document.getElementById('cancel-stage-intro').classList.add('d-none');
+    document.getElementById('cancel-stage-auto').classList.remove('d-none');
+
+    const term = document.getElementById('cancel-terminal-log');
+    const fill = document.getElementById('cancel-progress-fill');
+    const statusText = document.getElementById('bot-status-text');
+
+    fill.style.width = '0%';
+    term.innerHTML = '';
+    this.clearActiveTimeouts();
+
+    const subName = this.activeCancelSub.name;
+    const domain = subName.toLowerCase().replace(/\s+/g, '') + '.com';
+
+    const part1 = [
+      { text: `cancellation-agent --target=${domain} --user=alex@office.co`, isCmd: true, delay: 0 },
+      { text: `[BOT] Mapping site navigation patterns for account termination...`, delay: 400 },
+      { text: `[BOT] Executing redirect to: https://www.${domain}/account/cancel`, delay: 900 },
+      { text: `[BOT] Session handshake active. Submitting digital authorization key...`, delay: 1400 },
+      { text: `[BOT] Overcoming retention intercept: "Free package upgrade rejected."`, delay: 2000 },
+      { text: `[BOT] Security challenge detected: 2FA Verification Required.`, delay: 2600 }
+    ];
+
+    part1.forEach(cmd => {
+      this.scheduleTimeout(() => {
+        const line = document.createElement('div');
+        line.className = 'term-log-line';
+        if (cmd.isCmd) line.className += ' cmd';
+        else line.className += ' done';
+
+        line.innerText = cmd.text;
+        term.appendChild(line);
+        term.scrollTop = term.scrollHeight;
+
+        const pct = (cmd.delay / 2600) * 50;
+        fill.style.width = `${pct}%`;
+
+        statusText.innerText = 'Resolving cancellation flow screens...';
+
+        if (cmd.delay === 2600) {
+          statusText.innerText = 'Verification Required';
+          const twoFactorDiv = document.createElement('div');
+          twoFactorDiv.className = 'bot-2fa-container';
+          twoFactorDiv.id = 'bot-2fa-container-el';
+          twoFactorDiv.innerHTML = `
+            <div class="bot-2fa-label">Verification Code (sent to email)</div>
+            <div class="bot-2fa-row">
+              <input type="text" class="bot-2fa-input-field" maxlength="6" placeholder="******" id="bot-2fa-code-input">
+              <button class="btn-bot-2fa-submit" onclick="app.submitBot2FA()">Verify</button>
+            </div>
+            <div style="font-size: 10px; color: #ef4444; display: none; margin-top: 4px;" id="bot-2fa-error">Please enter a valid 6-digit code.</div>
+          `;
+          term.appendChild(twoFactorDiv);
+          term.scrollTop = term.scrollHeight;
+        }
+      }, cmd.delay);
+    });
+  }
+
+  submitBot2FA() {
+    const input = document.getElementById('bot-2fa-code-input');
+    const errorEl = document.getElementById('bot-2fa-error');
+    const code = input ? input.value.trim() : '';
+
+    if (code.length !== 6 || isNaN(code)) {
+      if (errorEl) errorEl.style.display = 'block';
+      return;
+    }
+
+    const form = document.getElementById('bot-2fa-container-el');
+    if (form) form.remove();
+
+    const term = document.getElementById('cancel-terminal-log');
+    const fill = document.getElementById('cancel-progress-fill');
+    const statusText = document.getElementById('bot-status-text');
+
+    const line = document.createElement('div');
+    line.className = 'term-log-line success';
+    line.innerText = `[BOT] Verification code ${code} accepted. Resuming...`;
+    term.appendChild(line);
+
+    const part2 = [
+      { text: `[BOT] Dark pattern detected: Cancellation link nested in hidden wrapper. Bypassing...`, delay: 500 },
+      { text: `[BOT] Confirming reason code: "Reason_Cost_Inefficiency"`, delay: 1200 },
+      { text: `[BOT] Requesting final billing closure payload...`, delay: 1800 },
+      { text: `[BOT] Capturing transaction receipt hash: #CANCEL-${Math.floor(100000 + Math.random() * 900000)}`, delay: 2400 },
+      { text: `cancellation-agent terminated with exit code 0 (success)`, isCmd: true, delay: 3000 },
+      { text: `[SUCCESS] Automated cancellation handshake finalized.`, isSuccess: true, delay: 3200 }
+    ];
+
+    part2.forEach(cmd => {
+      this.scheduleTimeout(() => {
+        const line2 = document.createElement('div');
+        line2.className = 'term-log-line';
+        if (cmd.isCmd) line2.className += ' cmd';
+        else if (cmd.isSuccess) line2.className += ' success';
+        else line2.className += ' done';
+
+        line2.innerText = cmd.text;
+        term.appendChild(line2);
+        term.scrollTop = term.scrollHeight;
+
+        const pct = 50 + (cmd.delay / 3200) * 50;
+        fill.style.width = `${pct}%`;
+
+        if (cmd.delay < 1500) statusText.innerText = 'Resolving cancellation flow screens...';
+        else if (cmd.delay < 2500) statusText.innerText = 'Filing termination confirmation...';
+        else statusText.innerText = 'Successfully Terminated!';
+      }, cmd.delay);
+    });
+
+    this.scheduleTimeout(() => {
+      const subName = this.activeCancelSub.name;
+      this.activeCancelSub.isCancelled = true;
+      this.saveState();
+      this.renderAll();
+
+      document.getElementById('cancel-stage-auto').classList.add('d-none');
+      document.getElementById('cancel-stage-success').classList.remove('d-none');
+      document.getElementById('cancel-success-message').innerText = `Cancellation confirmed. The bot successfully verified and terminated your ${subName} subscription. No further charges will occur.`;
+      
+      this.showToast('🚫 Cancelled', `Subscription for ${subName} has been successfully closed.`, this.activeCancelSub.id);
+    }, 3600);
+  }
+
+  // Email Template option
+  startManualTemplate() {
+    document.getElementById('cancel-stage-intro').classList.add('d-none');
+    document.getElementById('cancel-stage-template').classList.remove('d-none');
+
+    const subName = this.activeCancelSub.name;
+    const recipient = `billing@${subName.toLowerCase().replace(/\s+/g, '')}.com`;
+    
+    document.getElementById('cancel-email-recipient').innerText = recipient;
+
+    const emailBody = `To: ${recipient}
+Subject: ACCOUNT CANCELLATION REQUEST - ${subName}
+
+Dear ${subName} Billing Support,
+
+I am writing to formally request the immediate cancellation of my subscription service for ${subName}. 
+
+Here are my account details:
+- Service Plan: Standard Subscription
+- Registered Email: alex@office.co
+- Effective Date: Immediately (${new Date().toLocaleDateString()})
+
+Please discontinue all recurring billing charges and confirm via reply to this email once the service has been terminated.
+
+Sincerely,
+Alex`;
+
+    document.getElementById('cancel-email-body').innerText = emailBody;
+  }
+
+  copyEmailTemplate() {
+    const text = document.getElementById('cancel-email-body').innerText;
+    navigator.clipboard.writeText(text).then(() => {
+      this.showToast('📋 Copied', 'Email template text copied to clipboard.');
+    });
+  }
+
+  markAsCancelledByEmail() {
+    // Mark as cancelled in state
+    this.activeCancelSub.isCancelled = true;
+    this.saveState();
+    this.renderAll();
+
+    document.getElementById('cancel-stage-template').classList.add('d-none');
+    document.getElementById('cancel-stage-success').classList.remove('d-none');
+    document.getElementById('cancel-success-message').innerText = `Status updated to "Cancelled". Make sure you have sent the generated email template to ${this.activeCancelSub.name}'s billing support to ensure final closure.`;
+    
+    this.showToast('🚫 Pending Closure', `${this.activeCancelSub.name} marked as cancelled.`, this.activeCancelSub.id);
+  }
+
+  // OFFICE STACK (TEAM SEATS) INVITE WIZARD
+  openInviteModal() {
+    document.getElementById('team-invite-modal').classList.add('active');
+  }
+
+  closeInviteModal() {
+    document.getElementById('team-invite-modal').classList.remove('active');
+  }
+
+  handleInviteMember(event) {
+    event.preventDefault();
+
+    if (this.teammates.length >= 4) {
+      alert('Office Stack seat limit reached (Maximum 3 invites/seats + owner).');
+      return;
+    }
+
+    const name = document.getElementById('invite-name').value;
+    const email = document.getElementById('invite-email').value;
+    const role = document.getElementById('invite-role').value;
+
+    const newTeammate = {
+      id: 't' + (Date.now()),
+      name,
+      email,
+      role,
+      status: 'invited'
+    };
+
+    this.teammates.push(newTeammate);
+    this.updateTeammatesUI();
+
+    // Reset Form
+    event.target.reset();
+
+    this.showToast('✉️ Invite Sent', `Invitation email sent to ${name} (${email}).`, newTeammate.id);
+  }
+
+  updateTeammatesUI() {
+    const list = document.getElementById('teammates-list');
+    const countSpan = document.getElementById('active-seats-count');
+    if (!list || !countSpan) return;
+
+    list.innerHTML = '';
+    countSpan.innerText = this.teammates.length;
+
+    this.teammates.forEach(tm => {
+      const initials = tm.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+      const row = document.createElement('div');
+      row.className = 'teammate-row';
+      
+      const roleBadge = tm.status === 'invited' 
+        ? `<span class="teammate-role invited">Invited</span>` 
+        : `<span class="teammate-role ${tm.role === 'Owner' ? 'owner' : ''}">${tm.role}</span>`;
+
+      row.innerHTML = `
+        <div class="teammate-info">
+          <div class="teammate-avatar">${initials}</div>
+          <div class="teammate-details">
+            <span class="teammate-name">${tm.name}</span>
+            <span class="teammate-email">${tm.email}</span>
+          </div>
+        </div>
+        ${roleBadge}
+      `;
+      list.appendChild(row);
+    });
+
+    // Check invite limit
+    const formSubmitBtn = document.querySelector('#team-invite-modal form button');
+    if (formSubmitBtn) {
+      if (this.teammates.length >= 4) {
+        formSubmitBtn.innerText = 'Seats Filled';
+        formSubmitBtn.disabled = true;
+        formSubmitBtn.style.opacity = '0.5';
+        formSubmitBtn.style.cursor = 'not-allowed';
+      } else {
+        formSubmitBtn.innerText = 'Send Invite';
+        formSubmitBtn.disabled = false;
+        formSubmitBtn.style.opacity = '1';
+        formSubmitBtn.style.cursor = 'pointer';
+      }
+    }
+  }
+
+  deleteSubscription(subId) {
+    if (confirm('Are you sure you want to permanently delete this subscription from your history?')) {
+      this.subscriptions = this.subscriptions.filter(s => s.id !== subId);
+      this.saveState();
+      this.renderAll();
+      this.showToast('🗑️ Deleted', 'Subscription removed from your tracker.');
+    }
+  }
+
+  reactivateSubscription(subId) {
+    const sub = this.subscriptions.find(s => s.id === subId);
+    if (sub) {
+      sub.isCancelled = false;
+      this.saveState();
+      this.renderAll();
+      this.showToast('✅ Reactivated', `${sub.name} subscription reactivated successfully.`, null, false);
+    }
+  }
+
+  openRedundancyReview(subId1, subId2) {
+    const sub1 = this.subscriptions.find(s => s.id === subId1);
+    const sub2 = this.subscriptions.find(s => s.id === subId2);
+    if (!sub1 || !sub2) return;
+
+    const leftCard = document.getElementById('redundancy-compare-left');
+    const rightCard = document.getElementById('redundancy-compare-right');
+    const actionsStack = document.getElementById('redundancy-actions-stack');
+
+    const renderCard = (element, sub) => {
+      const priceText = sub.isTrial && !sub.isCancelled ? 'Free' : `$${parseFloat(sub.price).toFixed(2)}`;
+      const cycleText = sub.cycle === 'monthly' ? '/mo' : '/yr';
+      element.innerHTML = `
+        <div class="compare-icon-wrapper">${sub.name.charAt(0)}</div>
+        <h4>${sub.name}</h4>
+        <div class="compare-price">${priceText}${cycleText}</div>
+        <div class="compare-meta">
+          <div>Category: ${sub.category}</div>
+          <div>Renewal: ${this.formatDate(sub.nextRenewal)}</div>
+          <div>Owner: ${sub.owner.split(' ')[0]}</div>
+        </div>
+      `;
+    };
+
+    renderCard(leftCard, sub1);
+    renderCard(rightCard, sub2);
+
+    actionsStack.innerHTML = '';
+
+    // Keep left, cancel right
+    const btnKeepLeft = document.createElement('button');
+    btnKeepLeft.className = 'btn-notif-action primary';
+    btnKeepLeft.innerText = `Keep ${sub1.name} & Cancel ${sub2.name}`;
+    btnKeepLeft.onclick = () => {
+      this.closeRedundancyModal();
+      this.openCancelWizard(sub2.id);
+    };
+
+    // Keep right, cancel left
+    const btnKeepRight = document.createElement('button');
+    btnKeepRight.className = 'btn-notif-action primary';
+    btnKeepRight.innerText = `Keep ${sub2.name} & Cancel ${sub1.name}`;
+    btnKeepRight.onclick = () => {
+      this.closeRedundancyModal();
+      this.openCancelWizard(sub1.id);
+    };
+
+    // Keep both & dismiss warning
+    const btnDismiss = document.createElement('button');
+    btnDismiss.className = 'btn-notif-action secondary';
+    btnDismiss.innerText = `Keep Both & Dismiss Warning`;
+    btnDismiss.onclick = () => this.dismissRedundancyWarning(sub1.id, sub2.id);
+
+    // Cancel/Close
+    const btnClose = document.createElement('button');
+    btnClose.className = 'btn-notif-action secondary';
+    btnClose.innerText = 'Close';
+    btnClose.onclick = () => this.closeRedundancyModal();
+
+    actionsStack.appendChild(btnKeepLeft);
+    actionsStack.appendChild(btnKeepRight);
+    actionsStack.appendChild(btnDismiss);
+    actionsStack.appendChild(btnClose);
+
+    document.getElementById('redundancy-review-modal').classList.add('active');
+  }
+
+  closeRedundancyModal() {
+    document.getElementById('redundancy-review-modal').classList.remove('active');
+  }
+
+  dismissRedundancyWarning(subId1, subId2) {
+    this.dismissedRedundancies.push([subId1, subId2]);
+    this.saveState();
+    this.closeRedundancyModal();
+    this.renderAll();
+    this.showToast('✅ Overlap Resolved', 'Overlapping warning dismissed.');
+  }
+
+  renderTeamBar() {
+    const bar = document.getElementById('team-members-bar');
+    const avatarsList = document.getElementById('team-avatars-list');
+    if (!bar || !avatarsList) return;
+
+    if (this.currentScope === 'team') {
+      bar.style.display = 'flex';
+      avatarsList.innerHTML = '';
+      
+      // Render first 3 teammates as bubbles
+      this.teammates.slice(0, 3).forEach(tm => {
+        const initials = tm.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+        const bubble = document.createElement('div');
+        bubble.className = `avatar-bubble ${tm.status === 'invited' ? 'invited' : ''}`;
+        bubble.innerText = initials;
+        bubble.title = `${tm.name} (${tm.role})`;
+        avatarsList.appendChild(bubble);
+      });
+      
+      // If there are more than 3, show a count bubble
+      if (this.teammates.length > 3) {
+        const extraBubble = document.createElement('div');
+        extraBubble.className = 'avatar-bubble extra';
+        extraBubble.innerText = `+${this.teammates.length - 3}`;
+        extraBubble.title = `${this.teammates.length - 3} more members`;
+        avatarsList.appendChild(extraBubble);
+      }
+    } else {
+      bar.style.display = 'none';
+    }
+  }
+
+  // NOTIFICATION & TOAST MANAGER
+  showNotificationHistory() {
+    const modal = document.getElementById('notification-modal');
+    const container = document.getElementById('notifications-list-container');
+    if (!modal || !container) return;
+
+    container.innerHTML = '';
+
+    if (this.notifications.length === 0) {
+      container.innerHTML = `<div class="text-center text-muted" style="padding: 20px 0; font-size:12px;">No notification history.</div>`;
+    } else {
+      this.notifications.forEach(notif => {
+        const item = document.createElement('div');
+        item.className = 'notification-item interactive';
+        item.title = 'Click to view actions';
+        
+        item.onclick = () => {
+          this.closeNotificationModal();
+          this.openNotificationActionModal(notif.id);
+        };
+
+        item.innerHTML = `
+          <span class="notification-item-time">${notif.time}</span>
+          <div class="notification-item-content">
+            <div class="notification-item-title">${notif.title}</div>
+            <div class="notification-item-desc">${notif.desc}</div>
+            ${notif.subId ? `<span class="notification-interactive-badge">Action Required</span>` : ''}
+          </div>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    modal.classList.add('active');
+  }
+
+  closeNotificationModal() {
+    document.getElementById('notification-modal').classList.remove('active');
+  }
+
+  openNotificationActionModal(notifId) {
+    const notif = this.notifications.find(n => n.id === notifId || String(n.id) === String(notifId));
+    if (!notif) return;
+
+    // Fill title, desc
+    document.getElementById('notif-action-title').innerText = notif.title;
+    document.getElementById('notif-action-desc').innerText = notif.desc;
+
+    // Resolve icon
+    const iconEl = document.getElementById('notif-action-icon');
+    if (notif.type === 'trial') {
+      iconEl.innerText = '⏳';
+    } else if (notif.type === 'price-hike') {
+      iconEl.innerText = '📈';
+    } else if (notif.type === 'cancel') {
+      iconEl.innerText = '🚫';
+    } else {
+      iconEl.innerText = '🔔';
+    }
+
+    // Show details card if subId is linked
+    const detailsCard = document.getElementById('notif-sub-details-card');
+    let sub = null;
+    if (notif.subId) {
+      sub = this.subscriptions.find(s => s.id === notif.subId);
+    }
+
+    if (sub) {
+      detailsCard.style.display = 'flex';
+      const renewalDateFormatted = this.formatDate(sub.nextRenewal);
+      const cycleText = sub.cycle === 'monthly' ? '/mo' : '/yr';
+      const trialBadge = sub.isTrial ? `<span class="sub-badge trial">Trial</span>` : '';
+      const priceDisplay = sub.isTrial && !sub.isCancelled ? 'Free' : `$${parseFloat(sub.price).toFixed(2)}`;
+      
+      detailsCard.innerHTML = `
+        <div class="notif-sub-info">
+          <h4>${sub.name}</h4>
+          <span>${sub.category} • Renews ${renewalDateFormatted} ${trialBadge}</span>
+        </div>
+        <div class="notif-sub-price">${priceDisplay}${cycleText}</div>
+      `;
+    } else {
+      detailsCard.style.display = 'none';
+    }
+
+    // Dynamic actions stack
+    const actionsStack = document.getElementById('notif-actions-stack');
+    actionsStack.innerHTML = '';
+
+    if (notif.type === 'trial' && sub) {
+      // Primary: Convert to Paid Sub
+      const btnKeep = document.createElement('button');
+      btnKeep.className = 'btn-notif-action primary';
+      btnKeep.innerText = 'Convert to Paid Sub';
+      btnKeep.onclick = () => this.triggerActionKeep(sub.id, notif.id);
+      
+      // Secondary: Snooze Alert
+      const btnSnooze = document.createElement('button');
+      btnSnooze.className = 'btn-notif-action secondary';
+      btnSnooze.innerText = 'Snooze Alert (45s)';
+      btnSnooze.onclick = () => this.triggerActionSnooze(notif.id);
+
+      // Danger: Cancel Subscription
+      const btnCancel = document.createElement('button');
+      btnCancel.className = 'btn-notif-action danger';
+      btnCancel.innerText = 'Cancel Subscription';
+      btnCancel.onclick = () => this.triggerActionCancel(sub.id);
+
+      actionsStack.appendChild(btnKeep);
+      actionsStack.appendChild(btnSnooze);
+      actionsStack.appendChild(btnCancel);
+    } else if (notif.type === 'price-hike' && sub) {
+      // Primary: Accept Price Hike
+      const btnAccept = document.createElement('button');
+      btnAccept.className = 'btn-notif-action primary';
+      btnAccept.innerText = 'Accept Price Hike';
+      btnAccept.onclick = () => this.triggerActionAcceptHike(sub.id, notif.id);
+
+      // Danger: Cancel Subscription
+      const btnCancel = document.createElement('button');
+      btnCancel.className = 'btn-notif-action danger';
+      btnCancel.innerText = 'Cancel Subscription';
+      btnCancel.onclick = () => this.triggerActionCancel(sub.id);
+
+      actionsStack.appendChild(btnAccept);
+      actionsStack.appendChild(btnCancel);
+    } else {
+      // General alert: Dismiss Notification
+      const btnDismiss = document.createElement('button');
+      btnDismiss.className = 'btn-notif-action primary';
+      btnDismiss.innerText = 'Dismiss Notification';
+      btnDismiss.onclick = () => this.triggerActionDismiss(notif.id);
+      actionsStack.appendChild(btnDismiss);
+    }
+
+    // Add a general close button for safety
+    const btnClose = document.createElement('button');
+    btnClose.className = 'btn-notif-action secondary';
+    btnClose.innerText = 'Close';
+    btnClose.onclick = () => this.closeNotificationActionModal();
+    actionsStack.appendChild(btnClose);
+
+    // Open Action Sheet Modal
+    document.getElementById('notification-action-modal').classList.add('active');
+  }
+
+  closeNotificationActionModal() {
+    document.getElementById('notification-action-modal').classList.remove('active');
+  }
+
+  triggerActionKeep(subId, notifId) {
+    const sub = this.subscriptions.find(s => s.id === subId);
+    if (sub) {
+      sub.isTrial = false;
+      sub.trialEnd = null;
+    }
+    // Remove notification from memory
+    this.notifications = this.notifications.filter(n => n.id !== notifId && String(n.id) !== String(notifId));
+    this.updateNotificationDot();
+    this.closeNotificationActionModal();
+    this.saveState();
+    this.renderAll();
+    
+    // Pop a success toast
+    this.showToast('✅ Converted to Paid', `${sub ? sub.name : 'Subscription'} converted to paid.`, null, false);
+  }
+
+  triggerActionAcceptHike(subId, notifId) {
+    const sub = this.subscriptions.find(s => s.id === subId);
+    if (sub) {
+      // Update original price to match the hiked price so hike indicator clears
+      if (sub.priceHike) {
+        sub.price = sub.priceHike.newPrice;
+        sub.priceHike = null;
+      }
+    }
+    // Remove notification from memory
+    this.notifications = this.notifications.filter(n => n.id !== notifId && String(n.id) !== String(notifId));
+    this.updateNotificationDot();
+    this.closeNotificationActionModal();
+    this.saveState();
+    this.renderAll();
+    
+    // Pop a success toast
+    this.showToast('📈 Hike Accepted', `Hike accepted for ${sub ? sub.name : 'subscription'}.`, null, false);
+  }
+
+  triggerActionSnooze(notifId) {
+    const notif = this.notifications.find(n => n.id === notifId || String(n.id) === String(notifId));
+    const subId = notif ? notif.subId : null;
+    const sub = subId ? this.subscriptions.find(s => s.id === subId) : null;
+    
+    // Remove notification from memory
+    this.notifications = this.notifications.filter(n => n.id !== notifId && String(n.id) !== String(notifId));
+    this.updateNotificationDot();
+    this.closeNotificationActionModal();
+    this.saveState();
+    this.renderAll();
+    
+    // Pop snooze toast
+    this.showToast('🔔 Snoozed', 'Alert snoozed for 45 seconds.', null, false);
+    
+    // Schedule a reminder after 45 seconds using standard setTimeout to avoid being cleared by modal closes
+    setTimeout(() => {
+      this.showToast(
+        '🚨 Trial Ending (Snoozed)',
+        `Reminder: ${sub ? sub.name : 'Figma Pro'} trial charges in 24 hours. Click to manage.`,
+        subId,
+        true
+      );
+    }, 45000);
+  }
+
+  triggerActionCancel(subId) {
+    this.closeNotificationActionModal();
+    this.switchTab('list');
+    
+    // Open cancellation wizard
+    setTimeout(() => {
+      this.openCancelWizard(subId);
+    }, 150);
+  }
+
+  triggerActionDismiss(notifId) {
+    // Remove notification from memory
+    this.notifications = this.notifications.filter(n => n.id !== notifId && String(n.id) !== String(notifId));
+    this.updateNotificationDot();
+    this.closeNotificationActionModal();
+    this.saveState();
+    this.renderAll();
+    
+    // Pop toast
+    this.showToast('🔔 Dismissed', 'Notification dismissed.', null, false);
+  }
+
+  clearNotifications() {
+    this.notifications = [];
+    this.updateNotificationDot();
+    this.closeNotificationModal();
+    this.saveState();
+    this.showToast('🔔 Clear', 'Notification log cleared.', null, false);
+  }
+
+  updateNotificationDot() {
+    const dot = document.getElementById('global-alert-dot');
+    if (dot) {
+      dot.style.display = this.notifications.length > 0 ? 'block' : 'none';
+    }
+  }
+
+  // Toast System
+  showToast(title, body, subId = null, addToHistory = true) {
+    const toast = document.getElementById('toast-notification');
+    const iconEl = document.getElementById('toast-icon');
+    const titleEl = document.getElementById('toast-title');
+    const bodyEl = document.getElementById('toast-body');
+
+    // Change icon depending on action type
+    if (title.includes('Cancel') || title.includes('🚫')) iconEl.innerText = '🚫';
+    else if (title.includes('Add') || title.includes('✅')) iconEl.innerText = '✅';
+    else if (title.includes('Trial') || title.includes('🚨')) iconEl.innerText = '🚨';
+    else if (title.includes('Import') || title.includes('📥')) iconEl.innerText = '📥';
+    else iconEl.innerText = '🔔';
+
+    titleEl.innerText = title;
+    bodyEl.innerText = body;
+
+    const notifId = Date.now();
+
+    // Add to history if enabled
+    if (addToHistory) {
+      let type = 'general';
+      if (title.includes('Trial') || title.includes('Ending') || title.includes('🚨') || title.includes('⏳')) {
+        type = 'trial';
+      } else if (title.includes('Price') || title.includes('Hike') || title.includes('📈')) {
+        type = 'price-hike';
+      } else if (title.includes('Cancel') || title.includes('🚫')) {
+        type = 'cancel';
+      }
+
+      this.notifications.unshift({
+        id: notifId,
+        type: type,
+        title: title,
+        desc: body,
+        time: 'Just now',
+        subId: subId
+      });
+      this.updateNotificationDot();
+    }
+
+    // Toast click interaction (redirect to specific item or view or open action modal)
+    toast.onclick = () => {
+      this.hideToast();
+      if (addToHistory) {
+        this.openNotificationActionModal(notifId);
+      }
+    };
+
+    toast.classList.add('active');
+
+    // Auto dismiss after 4.5 seconds
+    if (this.toastTimeout) clearTimeout(this.toastTimeout);
+    this.toastTimeout = setTimeout(() => {
+      this.hideToast();
+    }, 4500);
+  }
+
+  hideToast() {
+    document.getElementById('toast-notification').classList.remove('active');
+  }
+
+  // UTILITY METHODS
+  formatDate(dateStr) {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+
+  scheduleTimeout(fn, delay) {
+    const timer = setTimeout(() => {
+      this.activeTimeouts = this.activeTimeouts.filter(t => t !== timer);
+      fn();
+    }, delay);
+    this.activeTimeouts.push(timer);
+    return timer;
+  }
+
+  clearActiveTimeouts() {
+    this.activeTimeouts.forEach(t => clearTimeout(t));
+    this.activeTimeouts = [];
+  }
+
+  startOnboarding() {
+    this.onboardingCompleted = false;
+    this.onboardingBranch = null;
+    this.onboardingStep = 1;
+
+    // Hide main app views
+    document.querySelector('.app-header').style.display = 'none';
+    document.getElementById('app-body').style.display = 'none';
+    document.querySelector('.app-tabs').style.display = 'none';
+
+    // Show onboarding screen
+    const screen = document.getElementById('onboarding-screen');
+    if (screen) {
+      screen.style.display = 'flex';
+      this.renderOnboardingStep();
+    }
+  }
+
+  selectOnboardingBranch(branch) {
+    this.onboardingBranch = branch;
+    this.onboardingStep = 2;
+    this.renderOnboardingStep();
+  }
+
+  renderOnboardingStep() {
+    const screen = document.getElementById('onboarding-screen');
+    if (!screen) return;
+
+    screen.innerHTML = '';
+
+    // Create container for step
+    const stepContainer = document.createElement('div');
+    stepContainer.style.display = 'flex';
+    stepContainer.style.flexDirection = 'column';
+    stepContainer.style.height = '100%';
+
+    // Step 1: Welcome & Path Selection
+    if (this.onboardingStep === 1) {
+      stepContainer.innerHTML = `
+        <div class="onboarding-header">
+          <div class="onboarding-logo">SUBSCRIPT</div>
+          <p class="onboarding-subtitle">Your centralized workspace to track, scan, and cancel subscription spend before you get charged.</p>
+        </div>
+
+        <div class="onboarding-cards-stack">
+          <div class="onboarding-card" onclick="app.selectOnboardingBranch('individual')">
+            <div class="onboarding-card-icon">👤</div>
+            <div class="onboarding-card-content">
+              <h3>Track Personal Spend</h3>
+              <p>Consolidate Netflix, Spotify, iCloud. Get trial countdown alerts, detect overlaps, and cancel in one click.</p>
+            </div>
+          </div>
+
+          <div class="onboarding-card" onclick="app.selectOnboardingBranch('team')">
+            <div class="onboarding-card-icon">👥</div>
+            <div class="onboarding-card-content">
+              <h3>Manage Team Stack</h3>
+              <p>Coordinate Slack, Zoom, AWS, ChatGPT. Assign seat allocations, invite coworkers, and optimize group licensing.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="onboarding-footer-nav">
+          <button type="button" class="onboarding-skip-btn" onclick="app.skipOnboarding()">Skip & load default dashboard</button>
+        </div>
+      `;
+    }
+
+    // Step 2: Branch Specific Configuration
+    else if (this.onboardingStep === 2) {
+      if (this.onboardingBranch === 'individual') {
+        // Individual Step 2: Auto Import / Connect Gmail
+        stepContainer.innerHTML = `
+          <div class="onboarding-header">
+            <div class="onboarding-logo">AUTO IMPORT</div>
+            <p class="onboarding-subtitle">Connect your Gmail mailbox to instantly find existing subscriptions from receipt headers.</p>
+          </div>
+
+          <div class="import-card" style="margin-top: 10px;">
+            <div class="import-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+              </svg>
+            </div>
+            <h3>Gmail Header Sync</h3>
+            <p>Subscript parses only billing receipts (subject lines & costs) securely using OAuth. Your mail content remains completely private.</p>
+            <button type="button" class="btn btn-primary w-100" onclick="app.openGmailModal()">Scan Inbox Receipts</button>
+          </div>
+
+          <div class="onboarding-footer-nav">
+            <div class="onboarding-progress">
+              <div class="progress-dot"></div>
+              <div class="progress-dot active"></div>
+              <div class="progress-dot"></div>
+            </div>
+            <div style="display:flex; justify-content:space-between; width:100%;">
+              <button type="button" class="btn btn-secondary" onclick="app.setStep(1)">Back</button>
+              <button type="button" class="btn btn-primary" onclick="app.setStep(3)">Add Manually</button>
+            </div>
+          </div>
+        `;
+      } else {
+        // Team Step 2: Enter Team Details
+        stepContainer.innerHTML = `
+          <div class="onboarding-header">
+            <div class="onboarding-logo">TEAM STACK</div>
+            <p class="onboarding-subtitle">Define the organization workspace to aggregate group subscription costs.</p>
+          </div>
+
+          <form id="onboarding-team-form" onsubmit="event.preventDefault(); app.saveTeamDetails();" style="margin-top: 10px;">
+            <div class="form-group">
+              <label for="ob-team-name">Workspace/Team Name</label>
+              <input type="text" id="ob-team-name" placeholder="e.g. Acme Corp, Design Stack" required>
+            </div>
+            
+            <div class="form-group">
+              <label for="ob-team-category">Primary Department/Focus</label>
+              <select id="ob-team-category">
+                <option value="Productivity & SaaS">Productivity & SaaS</option>
+                <option value="Design & Creatives">Design & Creatives</option>
+                <option value="Engineering & DevOps">Engineering & DevOps</option>
+                <option value="Marketing & Growth">Marketing & Growth</option>
+              </select>
+            </div>
+            
+            <button type="submit" class="btn btn-primary w-100" style="margin-top: 10px;">Continue</button>
+          </form>
+
+          <div class="onboarding-footer-nav">
+            <div class="onboarding-progress">
+              <div class="progress-dot"></div>
+              <div class="progress-dot active"></div>
+              <div class="progress-dot"></div>
+              <div class="progress-dot"></div>
+            </div>
+            <button type="button" class="btn btn-secondary align-self-start" style="width: fit-content;" onclick="app.setStep(1)">Back</button>
+          </div>
+        `;
+      }
+    }
+
+    // Step 3: Preset Selections / First item
+    else if (this.onboardingStep === 3) {
+      if (this.onboardingBranch === 'individual') {
+        // Individual Step 3: Presets & First manual sub
+        stepContainer.innerHTML = `
+          <div class="onboarding-header">
+            <div class="onboarding-logo">FIRST SERVICE</div>
+            <p class="onboarding-subtitle">Pick from popular presets or write one manually to complete your stack setup.</p>
+          </div>
+
+          <div class="presets-grid">
+            <div class="preset-chip" onclick="app.selectPresetSub('Netflix', 15.49, 'Entertainment', 'monthly')">
+              <span class="preset-name">Netflix</span>
+              <span class="preset-price">$15.49/mo</span>
+            </div>
+            <div class="preset-chip" onclick="app.selectPresetSub('Spotify', 10.99, 'Music', 'monthly')">
+              <span class="preset-name">Spotify</span>
+              <span class="preset-price">$10.99/mo</span>
+            </div>
+            <div class="preset-chip" onclick="app.selectPresetSub('Notion Plus', 8.00, 'Productivity', 'monthly')">
+              <span class="preset-name">Notion</span>
+              <span class="preset-price">$8.00/mo</span>
+            </div>
+            <div class="preset-chip" onclick="app.selectPresetSub('Figma Pro', 15.00, 'SaaS & Dev Tools', 'monthly')">
+              <span class="preset-name">Figma</span>
+              <span class="preset-price">$15.00/mo</span>
+            </div>
+          </div>
+
+          <form id="onboarding-sub-form" onsubmit="app.saveOnboardingSub(event)" style="gap:10px;">
+            <div class="form-row">
+              <div class="form-group" style="flex:2;">
+                <label for="ob-sub-name">Service Name</label>
+                <input type="text" id="ob-sub-name" placeholder="e.g. Netflix, Spotify" required>
+              </div>
+              <div class="form-group">
+                <label for="ob-sub-price">Price ($)</label>
+                <input type="number" id="ob-sub-price" step="0.01" placeholder="15.00" required>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="ob-sub-cycle">Cycle</label>
+                <select id="ob-sub-cycle">
+                  <option value="monthly">Monthly</option>
+                  <option value="yearly">Yearly</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="ob-sub-renewal">Renewal Date</label>
+                <input type="date" id="ob-sub-renewal" required>
+              </div>
+            </div>
+            <input type="hidden" id="ob-sub-category" value="Entertainment">
+            <button type="submit" class="btn btn-primary w-100" style="margin-top: 10px;">Save & Enter Dashboard</button>
+          </form>
+
+          <div class="onboarding-footer-nav">
+            <div class="onboarding-progress">
+              <div class="progress-dot"></div>
+              <div class="progress-dot"></div>
+              <div class="progress-dot active"></div>
+            </div>
+            <button type="button" class="btn btn-secondary align-self-start" onclick="app.setStep(2)">Back</button>
+          </div>
+        `;
+        
+        // Default renewal date to tomorrow
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        setTimeout(() => {
+          const el = document.getElementById('ob-sub-renewal');
+          if (el) el.value = tomorrow.toISOString().split('T')[0];
+        }, 50);
+      } else {
+        // Team Step 3: Invite Coworkers
+        stepContainer.innerHTML = `
+          <div class="onboarding-header">
+            <div class="onboarding-logo">INVITE MEMBERS</div>
+            <p class="onboarding-subtitle">Bring your billing contacts and department leads to collaborate on license allocations.</p>
+          </div>
+
+          <form id="onboarding-invite-form" onsubmit="event.preventDefault(); app.saveOnboardingInvite();" style="margin-top: 10px;">
+            <div class="form-group">
+              <label for="ob-invite-name">Teammate Name</label>
+              <input type="text" id="ob-invite-name" placeholder="e.g. Sarah Connor" required>
+            </div>
+            
+            <div class="form-group">
+              <label for="ob-invite-email">Teammate Email</label>
+              <input type="email" id="ob-invite-email" placeholder="e.g. sarah@office.co" required>
+            </div>
+
+            <div class="form-group">
+              <label for="ob-invite-role">Role</label>
+              <select id="ob-invite-role">
+                <option value="Admin">Admin</option>
+                <option value="Viewer">Viewer</option>
+                <option value="Contributor">Contributor</option>
+              </select>
+            </div>
+            
+            <button type="submit" class="btn btn-primary w-100" style="margin-top: 10px;">Send Invite & Continue</button>
+          </form>
+
+          <div class="onboarding-footer-nav">
+            <div class="onboarding-progress">
+              <div class="progress-dot"></div>
+              <div class="progress-dot"></div>
+              <div class="progress-dot active"></div>
+              <div class="progress-dot"></div>
+            </div>
+            <div style="display:flex; justify-content:space-between; width:100%;">
+              <button type="button" class="btn btn-secondary" onclick="app.setStep(2)">Back</button>
+              <button type="button" class="btn btn-secondary" onclick="app.setStep(4)">Invite Later</button>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    // Step 4: Team Flow Preset selection
+    else if (this.onboardingStep === 4) {
+      stepContainer.innerHTML = `
+        <div class="onboarding-header">
+          <div class="onboarding-logo">TEAM SAAS</div>
+          <p class="onboarding-subtitle">Select team subscriptions to bootstrap your collaborative tracker stack.</p>
+        </div>
+
+        <div class="presets-grid" style="margin-bottom: 24px;">
+          <div class="preset-chip" id="preset-slack" onclick="app.toggleOnboardingPreset('Slack Pro', 26.25, 'SaaS & Dev Tools')">
+            <span class="preset-name">Slack Pro</span>
+            <span class="preset-price">$26.25/mo</span>
+          </div>
+          <div class="preset-chip" id="preset-zoom" onclick="app.toggleOnboardingPreset('Zoom Pro', 14.99, 'SaaS & Dev Tools')">
+            <span class="preset-name">Zoom Pro</span>
+            <span class="preset-price">$14.99/mo</span>
+          </div>
+          <div class="preset-chip" id="preset-chatgpt" onclick="app.toggleOnboardingPreset('ChatGPT Plus', 20.00, 'Productivity')">
+            <span class="preset-name">ChatGPT Plus</span>
+            <span class="preset-price">$20.00/mo</span>
+          </div>
+          <div class="preset-chip" id="preset-aws" onclick="app.toggleOnboardingPreset('AWS Services', 12.50, 'Utilities')">
+            <span class="preset-name">AWS Cloud</span>
+            <span class="preset-price">$12.50/mo</span>
+          </div>
+        </div>
+
+        <button type="button" class="btn btn-primary w-100" onclick="app.saveTeamPresets()">Finish Setup</button>
+
+        <div class="onboarding-footer-nav">
+          <div class="onboarding-progress">
+            <div class="progress-dot"></div>
+            <div class="progress-dot"></div>
+            <div class="progress-dot"></div>
+            <div class="progress-dot active"></div>
+          </div>
+          <button type="button" class="btn btn-secondary align-self-start" onclick="app.setStep(3)">Back</button>
+        </div>
+      `;
+      
+      this.selectedOnboardingPresets = [];
+    }
+
+    screen.appendChild(stepContainer);
+  }
+
+  setStep(step) {
+    this.onboardingStep = step;
+    this.renderOnboardingStep();
+  }
+
+  selectPresetSub(name, price, category, cycle) {
+    document.getElementById('ob-sub-name').value = name;
+    document.getElementById('ob-sub-price').value = price;
+    document.getElementById('ob-sub-category').value = category;
+    document.getElementById('ob-sub-cycle').value = cycle;
+
+    // highlight selection
+    document.querySelectorAll('.preset-chip').forEach(chip => {
+      if (chip.querySelector('.preset-name').innerText === name) {
+        chip.classList.add('selected');
+      } else {
+        chip.classList.remove('selected');
+      }
+    });
+  }
+
+  toggleOnboardingPreset(name, price, category) {
+    const key = name.toLowerCase().split(' ')[0];
+    const chip = document.getElementById('preset-' + key);
+    const exists = this.selectedOnboardingPresets.find(p => p.name === name);
+    
+    if (exists) {
+      this.selectedOnboardingPresets = this.selectedOnboardingPresets.filter(p => p.name !== name);
+      if (chip) chip.classList.remove('selected');
+    } else {
+      this.selectedOnboardingPresets.push({ name, price, category });
+      if (chip) chip.classList.add('selected');
+    }
+  }
+
+  saveTeamDetails() {
+    const name = document.getElementById('ob-team-name').value;
+    const category = document.getElementById('ob-team-category').value;
+    
+    this.teamName = name;
+    this.teamCategory = category;
+    this.setStep(3);
+  }
+
+  saveOnboardingInvite() {
+    const name = document.getElementById('ob-invite-name').value;
+    const email = document.getElementById('ob-invite-email').value;
+    const role = document.getElementById('ob-invite-role').value;
+
+    this.teammates.push({
+      id: 't' + Date.now(),
+      name,
+      email,
+      role,
+      status: 'invited'
+    });
+
+    this.showToast('✉️ Invite Sent', `Invitation sent to ${name} (${email}).`);
+    this.setStep(4);
+  }
+
+  saveTeamPresets() {
+    const tomorrowStr = new Date();
+    tomorrowStr.setDate(tomorrowStr.getDate() + 5);
+    const renewalStr = tomorrowStr.toISOString().split('T')[0];
+
+    this.selectedOnboardingPresets.forEach(preset => {
+      this.subscriptions.push({
+        id: Date.now() + Math.random(),
+        name: preset.name,
+        price: preset.price,
+        cycle: 'monthly',
+        category: preset.category,
+        nextRenewal: renewalStr,
+        isTrial: false,
+        trialEnd: null,
+        isCancelled: false,
+        isTeam: true,
+        owner: 'Alex (You)',
+        priceHike: null
+      });
+    });
+
+    this.currentScope = 'team';
+    this.completeOnboarding();
+  }
+
+  saveOnboardingSub(event) {
+    event.preventDefault();
+    const name = document.getElementById('ob-sub-name').value;
+    const price = parseFloat(document.getElementById('ob-sub-price').value);
+    const cycle = document.getElementById('ob-sub-cycle').value;
+    const renewal = document.getElementById('ob-sub-renewal').value;
+    const category = document.getElementById('ob-sub-category').value;
+
+    this.subscriptions.push({
+      id: Date.now(),
+      name,
+      price,
+      cycle,
+      category,
+      nextRenewal: renewal,
+      isTrial: false,
+      trialEnd: null,
+      isCancelled: false,
+      isTeam: false,
+      owner: 'Alex (You)',
+      priceHike: null
+    });
+
+    this.currentScope = 'personal';
+    this.completeOnboarding();
+  }
+
+  completeOnboarding() {
+    localStorage.setItem('subscript_onboarding_completed', 'true');
+    this.onboardingCompleted = true;
+
+    // Save initial state compiled during onboarding
+    this.saveState();
+
+    // Restore visibility of main app
+    document.querySelector('.app-header').style.display = 'block';
+    document.getElementById('app-body').style.display = 'block';
+    document.querySelector('.app-tabs').style.display = 'flex';
+
+    // Hide onboarding overlay screen
+    const screen = document.getElementById('onboarding-screen');
+    if (screen) screen.style.display = 'none';
+
+    // Adjust segment control pill positioning
+    this.switchScope(this.currentScope);
+    this.renderAll();
+
+    this.showToast('🚀 Setup Complete', `Welcome to Subscript! Let's manage your subscriptions.`);
+  }
+
+  skipOnboarding() {
+    this.currentScope = 'personal';
+    this.completeOnboarding();
+  }
+
+  resetOnboarding() {
+    if (confirm('Are you sure you want to reset your onboarding status and all application data? This will restart the welcome flow.')) {
+      localStorage.removeItem('subscript_onboarding_completed');
+      localStorage.removeItem('subscript_subscriptions');
+      localStorage.removeItem('subscript_notifications');
+      localStorage.removeItem('subscript_dismissed_redundancies');
+      window.location.reload();
+    }
+  }
+
+  clearActiveTimeouts() {
+    this.activeTimeouts.forEach(t => clearTimeout(t));
+    this.activeTimeouts = [];
+  }
+
+  renderSpendTrendChart() {
+    const wrapper = document.getElementById('chart-svg-wrapper');
+    if (!wrapper) return;
+
+    const months = [];
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    let cy = 2026;
+    let cm = 4; // May (0-indexed)
+
+    for (let i = 0; i < 6; i++) {
+      months.push({ year: cy, month: cm, label: monthNames[cm] });
+      cm++;
+      if (cm > 11) {
+        cm = 0;
+        cy++;
+      }
+    }
+
+    const spendData = months.map(m => {
+      let sum = 0;
+      const activeSubs = this.subscriptions.filter(sub => {
+        const matchesScope = this.currentScope === 'team' ? sub.isTeam : !sub.isTeam;
+        return matchesScope && !sub.isCancelled;
+      });
+
+      activeSubs.forEach(sub => {
+        let price = parseFloat(sub.price);
+
+        // Check price hike
+        if (sub.priceHike) {
+          const hikeDate = new Date(sub.priceHike.date);
+          const currentMonthEnd = new Date(m.year, m.month + 1, 0);
+          if (currentMonthEnd >= hikeDate) {
+            price = parseFloat(sub.priceHike.newPrice);
+          } else {
+            price = parseFloat(sub.priceHike.originalPrice);
+          }
+        }
+
+        // Check trial conversion
+        if (sub.isTrial && sub.trialEnd) {
+          const trialEndDate = new Date(sub.trialEnd);
+          const currentMonthEnd = new Date(m.year, m.month + 1, 0);
+          if (currentMonthEnd < trialEndDate) {
+            return; // Still free trial
+          }
+        }
+
+        if (sub.cycle === 'monthly') {
+          sum += price;
+        } else if (sub.cycle === 'yearly') {
+          sum += price / 12;
+        }
+      });
+      return { ...m, amount: sum };
+    });
+
+    const maxAmount = Math.max(...spendData.map(d => d.amount), 50) * 1.1;
+
+    const points = spendData.map((d, i) => {
+      const x = 35 + i * 51;
+      const y = 120 - (d.amount / maxAmount) * 85;
+      return { x, y, amount: d.amount, ...d };
+    });
+
+    this.projectedSpendData = points;
+
+    let gridLinesHTML = '';
+    const steps = [0.25, 0.5, 0.75, 1.0];
+    steps.forEach(pct => {
+      const val = maxAmount * pct;
+      const gy = 120 - (val / maxAmount) * 85;
+      gridLinesHTML += `
+        <line class="chart-grid-line" x1="30" y1="${gy}" x2="300" y2="${gy}"></line>
+        <text x="25" y="${gy + 3}" style="font-size: 7px; fill: var(--text-tertiary); text-anchor: end;">$${val.toFixed(0)}</text>
+      `;
+    });
+
+    let nodesHTML = '';
+    points.forEach((p, idx) => {
+      nodesHTML += `<circle class="chart-dot" cx="${p.x}" cy="${p.y}" r="4.5" onmouseover="app.showChartTooltip(event, ${idx}, ${p.x}, ${p.y})" onmouseout="app.hideChartTooltip()"></circle>`;
+    });
+
+    let labelsHTML = '';
+    points.forEach((p) => {
+      labelsHTML += `<text class="chart-text" x="${p.x}" y="140">${p.label}</text>`;
+    });
+
+    const pathD = `M ${points.map(p => `${p.x} ${p.y}`).join(' L ')}`;
+    const gradPathD = `M ${points[0].x} 125 L ${points.map(p => `${p.x} ${p.y}`).join(' L ')} L ${points[points.length - 1].x} 125 Z`;
+
+    wrapper.innerHTML = `
+      <svg class="chart-svg" viewBox="0 0 320 150">
+        <defs>
+          <linearGradient id="chart-grad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="var(--text-primary)" stop-opacity="0.18"/>
+            <stop offset="100%" stop-color="var(--text-primary)" stop-opacity="0.0"/>
+          </linearGradient>
+        </defs>
+        
+        <!-- Y-Axis line -->
+        <line x1="30" y1="20" x2="30" y2="125" stroke="var(--border-color)" stroke-width="1"></line>
+        <!-- X-Axis line -->
+        <line x1="30" y1="125" x2="310" y2="125" stroke="var(--border-color)" stroke-width="1"></line>
+        
+        <!-- Grid lines -->
+        ${gridLinesHTML}
+        
+        <!-- Gradient Area -->
+        <path class="chart-line-gradient" d="${gradPathD}"></path>
+        
+        <!-- Line Path -->
+        <path class="chart-line" d="${pathD}"></path>
+        
+        <!-- Nodes -->
+        ${nodesHTML}
+        
+        <!-- Labels -->
+        ${labelsHTML}
+      </svg>
+    `;
+  }
+
+  showChartTooltip(event, idx, cx, cy) {
+    const tooltip = document.getElementById('chart-tooltip');
+    if (!tooltip || !this.projectedSpendData) return;
+
+    const data = this.projectedSpendData[idx];
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const monthTitle = `${monthNames[data.month]} ${data.year}`;
+
+    // Scan for events in this month
+    const events = [];
+    const activeSubs = this.subscriptions.filter(sub => {
+      const matchesScope = this.currentScope === 'team' ? sub.isTeam : !sub.isTeam;
+      return matchesScope && !sub.isCancelled;
+    });
+
+    activeSubs.forEach(sub => {
+      if (sub.isTrial && sub.trialEnd) {
+        const trialEndDate = new Date(sub.trialEnd);
+        if (trialEndDate.getMonth() === data.month && trialEndDate.getFullYear() === data.year) {
+          events.push(`⏳ ${sub.name} Converts (+$${parseFloat(sub.price).toFixed(2)})`);
+        }
+      }
+      if (sub.priceHike) {
+        const hikeDate = new Date(sub.priceHike.date);
+        if (hikeDate.getMonth() === data.month && hikeDate.getFullYear() === data.year) {
+          const diff = sub.priceHike.newPrice - sub.priceHike.originalPrice;
+          events.push(`📈 ${sub.name} Hike Active (+$${diff.toFixed(2)})`);
+        }
+      }
+    });
+
+    let eventsHTML = '';
+    if (events.length > 0) {
+      eventsHTML = `<div style="margin-top: 4px; font-weight: normal; color: var(--text-secondary); font-size: 8px; border-top: 1px solid #ccc; padding-top: 2px;">${events.join('<br>')}</div>`;
+    }
+
+    tooltip.innerHTML = `
+      <div class="tooltip-month">${monthTitle}</div>
+      <div>Projected Outflow: $${data.amount.toFixed(2)}</div>
+      ${eventsHTML}
+    `;
+
+    tooltip.style.left = `${cx}px`;
+    tooltip.style.top = `${cy - 45}px`;
+    tooltip.style.display = 'block';
+    tooltip.style.transform = 'translateX(-50%)';
+  }
+
+  hideChartTooltip() {
+    const tooltip = document.getElementById('chart-tooltip');
+    if (tooltip) {
+      tooltip.style.display = 'none';
+    }
+  }
+
+  renderSeatUsageAnalyzer() {
+    const card = document.getElementById('seat-analyzer-card');
+    if (!card) return;
+
+    if (this.currentScope !== 'team') {
+      card.style.display = 'none';
+      return;
+    }
+
+    card.style.display = 'block';
+
+    let totalSeatsPurchased = 0;
+    let totalSeatsAssigned = 0;
+    let totalWaste = 0;
+
+    const teamSubs = this.subscriptions.filter(sub => sub.isTeam && !sub.isCancelled);
+
+    teamSubs.forEach(sub => {
+      if (sub.seatsPurchased !== undefined) {
+        totalSeatsPurchased += sub.seatsPurchased;
+        totalSeatsAssigned += sub.seatsAssigned;
+        const wasteSeats = sub.seatsPurchased - sub.seatsAssigned;
+        if (wasteSeats > 0) {
+          totalWaste += wasteSeats * sub.pricePerSeat;
+        }
+      }
+    });
+
+    document.getElementById('seats-purchased-val').innerText = totalSeatsPurchased;
+    document.getElementById('seats-assigned-val').innerText = totalSeatsAssigned;
+    document.getElementById('seats-waste-val').innerText = `$${totalWaste.toFixed(2)}`;
+
+    const banner = document.getElementById('seat-waste-banner');
+    if (banner) {
+      if (totalWaste > 0) {
+        banner.style.display = 'block';
+        banner.innerHTML = `🚨 You are wasting <strong>$${totalWaste.toFixed(2)}/mo</strong> on unassigned seats. Adjust paid seat capacity below to optimize.`;
+      } else {
+        banner.style.display = 'none';
+      }
+    }
+
+    const adjusterRow = document.getElementById('seat-adjuster-row');
+    if (adjusterRow) {
+      adjusterRow.innerHTML = '';
+      teamSubs.forEach(sub => {
+        if (sub.seatsPurchased !== undefined) {
+          const item = document.createElement('div');
+          item.className = 'seat-adjust-item';
+          item.style.padding = '8px 0';
+          item.style.borderBottom = '1px solid var(--border-color)';
+          item.innerHTML = `
+            <span class="seat-adjust-label" style="font-weight:700;">${sub.name} Seats</span>
+            <div class="seat-slider-wrapper">
+              <input type="range" class="seat-adjust-slider" min="${sub.seatsAssigned}" max="10" value="${sub.seatsPurchased}" oninput="app.updateSeats(${sub.id}, this.value)">
+              <span class="seat-count-badge" style="font-size:11px; font-weight:700;">${sub.seatsPurchased} Paid / ${sub.seatsAssigned} Active</span>
+            </div>
+          `;
+          adjusterRow.appendChild(item);
+        }
+      });
+    }
+  }
+
+  updateSeats(subId, newSeatsVal) {
+    const sub = this.subscriptions.find(s => s.id === subId);
+    if (sub) {
+      sub.seatsPurchased = parseInt(newSeatsVal);
+      sub.price = sub.seatsPurchased * (sub.pricePerSeat || (sub.price / (sub.seatsPurchased || 1)));
+      this.saveState();
+      this.renderAll();
+    }
+  }
+
+  renderWallet() {
+    const list = document.getElementById('virtual-cards-list');
+    const linkedList = document.getElementById('linked-subs-list');
+    if (!list || !linkedList) return;
+
+    list.innerHTML = '';
+
+    const scopeCards = this.virtualCards.filter(c => c.scope === this.currentScope);
+
+    if (scopeCards.length > 0) {
+      const exists = scopeCards.some(c => c.id === this.selectedCardId);
+      if (!exists) {
+        this.selectedCardId = scopeCards[0].id;
+      }
+    } else {
+      this.selectedCardId = null;
+    }
+
+    if (scopeCards.length === 0) {
+      list.innerHTML = `<div class="text-center text-muted" style="width: 100%; padding: 20px 0; font-size: 11px;">No virtual cards created for ${this.currentScope} scope.</div>`;
+    } else {
+      scopeCards.forEach(card => {
+        let totalSpent = 0;
+        const activeSubs = this.subscriptions.filter(sub => {
+          const matchesScope = this.currentScope === 'team' ? sub.isTeam : !sub.isTeam;
+          return matchesScope && !sub.isCancelled && sub.cardId === card.id;
+        });
+
+        activeSubs.forEach(sub => {
+          const price = parseFloat(sub.price);
+          if (sub.cycle === 'monthly') {
+            totalSpent += price;
+          } else {
+            totalSpent += price / 12;
+          }
+        });
+
+        const isOverLimit = totalSpent > card.limit;
+        const pct = Math.min((totalSpent / card.limit) * 100, 100);
+
+        const cardEl = document.createElement('div');
+        cardEl.className = `virtual-card ${isOverLimit ? 'over-limit' : ''}`;
+        if (card.id === this.selectedCardId) {
+          cardEl.style.borderColor = 'var(--text-primary)';
+          cardEl.style.boxShadow = '0 0 12px rgba(255,255,255,0.18)';
+        }
+
+        cardEl.onclick = () => this.selectVirtualCard(card.id);
+
+        cardEl.innerHTML = `
+          <div class="card-header-row">
+            <span class="card-name">${card.name}</span>
+            <span class="card-network">VISA</span>
+          </div>
+          <div class="card-middle">
+            <div class="card-digits">${card.digits}</div>
+            <div class="card-expiry">EXP ${card.expiry}</div>
+          </div>
+          <div class="card-bottom-row">
+            <div class="card-limit-info">
+              <span>Spent: $${totalSpent.toFixed(2)}</span>
+              <span>Limit: $${card.limit.toFixed(0)}</span>
+            </div>
+            <div class="card-limit-progress-bar">
+              <div class="card-limit-progress-fill ${isOverLimit ? 'exceeded' : ''}" style="width: ${pct}%"></div>
+            </div>
+          </div>
+        `;
+        list.appendChild(cardEl);
+      });
+    }
+
+    linkedList.innerHTML = '';
+    if (!this.selectedCardId) {
+      linkedList.innerHTML = `<div class="text-center text-muted" style="padding: 10px 0; font-size:11px;">Select a card above to view linked transactions.</div>`;
+    } else {
+      const activeSubs = this.subscriptions.filter(sub => {
+        const matchesScope = this.currentScope === 'team' ? sub.isTeam : !sub.isTeam;
+        return matchesScope && !sub.isCancelled && sub.cardId === this.selectedCardId;
+      });
+
+      if (activeSubs.length === 0) {
+        linkedList.innerHTML = `<div class="text-center text-muted" style="padding: 10px 0; font-size:11px;">No active subscriptions linked to this card.</div>`;
+      } else {
+        activeSubs.forEach(sub => {
+          const item = document.createElement('div');
+          item.className = 'wallet-linked-item';
+          item.style.padding = '8px 0';
+          item.style.borderBottom = '1px solid var(--border-color)';
+          item.style.display = 'flex';
+          item.style.justifyContent = 'space-between';
+          item.style.alignItems = 'center';
+
+          const cardOptions = this.virtualCards
+            .filter(c => c.scope === this.currentScope)
+            .map(c => `<option value="${c.id}" ${c.id === sub.cardId ? 'selected' : ''}>${c.name}</option>`)
+            .join('');
+
+          item.innerHTML = `
+            <div style="display:flex; align-items:center; gap: 8px;">
+              <div class="sub-logo" style="width: 24px; height: 24px; font-size: 10px; line-height: 24px;">${sub.name.charAt(0)}</div>
+              <div>
+                <div class="wallet-linked-name" style="font-size: 12px; font-weight:700; color:var(--text-primary);">${sub.name}</div>
+                <div style="font-size: 9px; color: var(--text-tertiary);">Next renewal: ${this.formatDate(sub.nextRenewal)}</div>
+              </div>
+            </div>
+            <div style="text-align:right;">
+              <div class="wallet-linked-price" style="font-size:12px; font-weight:700; color:var(--text-primary);">$${parseFloat(sub.price).toFixed(2)}${sub.cycle === 'monthly' ? '/mo' : '/yr'}</div>
+              <select style="font-size: 9px; padding: 2px 4px; border-radius: 4px; background-color: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-primary); margin-top:4px;" onchange="app.reassignSubCard(${sub.id}, this.value)">
+                ${cardOptions}
+              </select>
+            </div>
+          `;
+          linkedList.appendChild(item);
+        });
+      }
+    }
+  }
+
+  handleCreateVirtualCard(event) {
+    event.preventDefault();
+    const name = document.getElementById('card-new-name').value;
+    const limit = parseFloat(document.getElementById('card-new-limit').value);
+
+    const newCard = {
+      id: 'c' + Date.now(),
+      name: name,
+      digits: '•••• •••• •••• ' + Math.floor(1000 + Math.random() * 9000),
+      expiry: '06/31',
+      limit: limit,
+      scope: this.currentScope
+    };
+
+    this.virtualCards.push(newCard);
+    this.saveState();
+    this.selectedCardId = newCard.id;
+
+    event.target.reset();
+    this.renderAll();
+    this.showToast('💳 Card Generated', `New virtual card "${name}" created with $${limit} limit.`);
+  }
+
+  reassignSubCard(subId, newCardId) {
+    const sub = this.subscriptions.find(s => s.id === subId);
+    if (sub) {
+      sub.cardId = newCardId;
+      this.saveState();
+      this.renderAll();
+      this.showToast('💳 Card Linked', `Assigned ${sub.name} to card.`);
+    }
+  }
+
+  selectVirtualCard(cardId) {
+    this.selectedCardId = cardId;
+    this.renderWallet();
+  }
+
+  updateCardDropdown() {
+    const select = document.getElementById('sub-card-binding');
+    if (!select) return;
+    select.innerHTML = '';
+    const scopeCards = this.virtualCards.filter(c => c.scope === this.currentScope);
+    scopeCards.forEach(card => {
+      const opt = document.createElement('option');
+      opt.value = card.id;
+      opt.innerText = `${card.name} (${card.digits.slice(-4)})`;
+      select.appendChild(opt);
+    });
+  }
+}
+
+// Instantiate App on window load
+let app;
+window.addEventListener('DOMContentLoaded', () => {
+  app = new SubscriptApp();
+  
+  // Expose global callback hooks for custom triggers in HTML
+  window.app = app;
+});
