@@ -49,6 +49,14 @@
                 <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
               </svg>
             </button>
+            <button class="btn-toggle-layout" id="toggle-layout-btn" onclick="app.toggleLayoutMode()" title="Switch Layout Mode">
+              <!-- Dynamically switched icon -->
+              <svg viewBox="0 0 24 24" class="header-icon" id="layout-icon-svg" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                <line x1="8" y1="21" x2="16" y2="21"/>
+                <line x1="12" y1="17" x2="12" y2="21"/>
+              </svg>
+            </button>
             <button class="btn-notification" id="notification-bell" onclick="app.showNotificationHistory()">
               <span class="notification-dot" id="global-alert-dot"></span>
               <svg viewBox="0 0 24 24" class="header-icon">
@@ -467,6 +475,19 @@
           <!-- Step 1: Connect -->
           <div class="gmail-step" id="gmail-step-connect">
             <p>Subscript extracts only the headers (sender email, subject, date, price) from billing receipts to identify subscriptions automatically.</p>
+            
+            <div class="email-link-container">
+              <h4 style="font-size: 11px; font-weight: 700; margin-bottom: 8px; color: var(--text-secondary); text-transform: uppercase;">Connected Inboxes</h4>
+              <div class="connected-emails-list" id="connected-emails-list">
+                <!-- Connected emails list populated by app.js -->
+              </div>
+              
+              <div style="display: flex; gap: 8px; margin-top: 10px;">
+                <input type="email" id="link-email-input" placeholder="e.g. alex.personal@gmail.com" style="flex: 1; padding: 8px 12px; font-size: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-app); color: var(--text-primary); outline: none;">
+                <button type="button" class="btn" style="padding: 8px 14px; font-size: 11px;" onclick="app.addConnectedEmail()">Link Inbox</button>
+              </div>
+            </div>
+
             <div class="auth-box">
               <div class="auth-icon">
                 <!-- Lock -->
@@ -478,7 +499,7 @@
               <h4>Secure OAuth Link</h4>
               <p class="text-muted">Subscript never stores email body content or passwords.</p>
             </div>
-            <button class="btn btn-primary w-100" onclick="app.startGmailScan()">Connect & Scan Inbox</button>
+            <button class="btn btn-primary w-100" id="btn-scan-inboxes" onclick="app.startGmailScan()">Connect & Scan Inboxes</button>
           </div>
 
           <!-- Step 2: Scanning Animation -->

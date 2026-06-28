@@ -200,6 +200,12 @@ class SubscriptApp {
       { name: 'Zoom Pro', price: 14.99, cycle: 'monthly', category: 'SaaS & Dev Tools' }
     ];
 
+    // Load or initialize Connected Emails list
+    this.connectedEmails = JSON.parse(localStorage.getItem('subscript_connected_emails')) || ['alex@office.co'];
+
+    // Load Widescreen Layout state
+    this.layoutMode = localStorage.getItem('subscript_layout_mode') || 'desktop';
+
     this.selectedDetectedSubs = [];
     this.activeCancelSub = null;
     this.cancelTimer = null;
@@ -213,6 +219,7 @@ class SubscriptApp {
     
     // UI Helpers
     this.initTime();
+    this.applyLayoutMode();
     this.renderAll();
 
     if (!this.onboardingCompleted) {
@@ -267,6 +274,7 @@ class SubscriptApp {
     localStorage.setItem('subscript_notifications', JSON.stringify(this.notifications));
     localStorage.setItem('subscript_dismissed_redundancies', JSON.stringify(this.dismissedRedundancies));
     localStorage.setItem('subscript_virtual_cards', JSON.stringify(this.virtualCards));
+    localStorage.setItem('subscript_connected_emails', JSON.stringify(this.connectedEmails));
   }
 
   // Financial Metrics: Monthly Burn & Annualized Projection
@@ -841,10 +849,78 @@ class SubscriptApp {
 
   // GMAIL SCANNER LOGIC
   openGmailModal() {
+    this.renderConnectedEmails();
     document.getElementById('gmail-step-connect').classList.remove('d-none');
     document.getElementById('gmail-step-scanning').classList.add('d-none');
     document.getElementById('gmail-step-results').classList.add('d-none');
     document.getElementById('gmail-scanner-modal').classList.add('active');
+  }
+
+  renderConnectedEmails() {
+    const list = document.getElementById('connected-emails-list');
+    if (!list) return;
+    list.innerHTML = '';
+
+    this.connectedEmails.forEach((email) => {
+      const item = document.createElement('div');
+      item.className = 'connected-email-item';
+      
+      const removeBtn = this.connectedEmails.length > 1
+        ? `<button type="button" class="btn-remove-email" onclick="app.removeConnectedEmail('${email}')">Remove</button>`
+        : '';
+
+      item.innerHTML = `
+        <div class="connected-email-left">
+          <svg class="connected-email-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+            <polyline points="22,6 12,13 2,6"></polyline>
+          </svg>
+          <span class="connected-email-address">${email}</span>
+        </div>
+        ${removeBtn}
+      `;
+      list.appendChild(item);
+    });
+
+    const scanBtn = document.getElementById('btn-scan-inboxes');
+    if (scanBtn) {
+      scanBtn.innerText = `Connect & Scan ${this.connectedEmails.length} Inbox${this.connectedEmails.length > 1 ? 'es' : ''}`;
+    }
+  }
+
+  addConnectedEmail() {
+    const input = document.getElementById('link-email-input');
+    if (!input) return;
+    const email = input.value.trim().toLowerCase();
+    
+    // Simple email regex validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      alert('Please enter a valid email address.');
+      return;
+    }
+
+    if (this.connectedEmails.includes(email)) {
+      alert('This email is already connected.');
+      return;
+    }
+
+    this.connectedEmails.push(email);
+    this.saveState();
+    this.renderConnectedEmails();
+    input.value = '';
+    this.showToast('✉️ Inbox Linked', `${email} has been successfully added to your scan queue.`);
+  }
+
+  removeConnectedEmail(email) {
+    if (this.connectedEmails.length <= 1) {
+      alert('At least one connected email is required.');
+      return;
+    }
+    this.connectedEmails = this.connectedEmails.filter(e => e !== email);
+    this.saveState();
+    this.renderConnectedEmails();
+    this.showToast('🗑️ Inbox Removed', `${email} was disconnected from Subscript.`);
   }
 
   closeGmailModal() {
@@ -863,18 +939,37 @@ class SubscriptApp {
     fill.style.width = '0%';
     logger.innerHTML = '';
 
-    const logs = [
-      { text: 'Connecting to mail.google.com IMAP secure servers...', delay: 400 },
-      { text: 'Accessing OAuth credentials token...', delay: 800 },
-      { text: 'Searching emails with queries: "invoice", "receipt", "subscription"...', delay: 1400 },
-      { text: 'Found Adobe Receipt (Adobe Creative Cloud) - billing@adobe.com', delay: 2000, detected: 0 },
-      { text: 'Found Amazon Web Services invoice (AWS Cloud Services) - billing@amazon.com', delay: 2600, detected: 1 },
-      { text: 'Found Google Pay receipt (Google One 100GB) - payments-noreply@google.com', delay: 3400, detected: 2 },
-      { text: 'Found Zoom Invoice (Zoom Pro) - billing@zoom.us', delay: 4000, detected: 3 },
-      { text: 'Parsing metadata, tax statements, and price levels...', delay: 4600 },
-      { text: 'Analyzing recurrence interval tokens...', delay: 5200 },
-      { text: 'Scan complete! 4 matches detected.', delay: 5800 }
-    ];
+    // Generate dynamic scan sequence logs based on the connected emails list
+    const logs = [];
+    let currentDelay = 0;
+
+    // Scan each connected email inbox
+    this.connectedEmails.forEach((email, emailIdx) => {
+      logs.push({ text: `Connecting to secure mail servers for ${email}...`, delay: currentDelay + 400 });
+      logs.push({ text: `Accessing secure OAuth handshake token for ${email}...`, delay: currentDelay + 800 });
+      logs.push({ text: `Searching headers in ${email} for "invoice", "receipt", "subscription"...`, delay: currentDelay + 1400 });
+      
+      // Distribute the preset scannable subscriptions among connected emails
+      if (emailIdx === 0) {
+        logs.push({ text: `Found Adobe Receipt (Adobe Creative Cloud) in ${email} - billing@adobe.com`, delay: currentDelay + 2000, detected: 0, detectedEmail: email });
+        logs.push({ text: `Found Amazon Web Services invoice (AWS Cloud Services) in ${email} - billing@amazon.com`, delay: currentDelay + 2600, detected: 1, detectedEmail: email });
+      } else if (emailIdx === 1) {
+        logs.push({ text: `Found Google Pay receipt (Google One 100GB) in ${email} - payments-noreply@google.com`, delay: currentDelay + 2000, detected: 2, detectedEmail: email });
+      } else if (emailIdx === 2) {
+        logs.push({ text: `Found Zoom Invoice (Zoom Pro) in ${email} - billing@zoom.us`, delay: currentDelay + 2000, detected: 3, detectedEmail: email });
+      } else {
+        // Fallback for extra custom emails
+        logs.push({ text: `Inbox ${email} successfully scanned. 0 new matches.`, delay: currentDelay + 2000 });
+      }
+
+      currentDelay += 2800;
+    });
+
+    logs.push({ text: 'Parsing metadata, tax statements, and billing cycles...', delay: currentDelay + 400 });
+    logs.push({ text: 'Analyzing recurrence interval tokens...', delay: currentDelay + 1000 });
+    logs.push({ text: `Scan complete! 4 matches detected across ${this.connectedEmails.length} inbox${this.connectedEmails.length > 1 ? 'es' : ''}.`, delay: currentDelay + 1600 });
+
+    const totalDuration = currentDelay + 1600;
 
     logs.forEach(log => {
       this.scheduleTimeout(() => {
@@ -883,7 +978,9 @@ class SubscriptApp {
         
         if (log.detected !== undefined) {
           item.className = 'detected-log-item success';
-          item.innerText = `🔍 DETECTED: ${this.gmailScannable[log.detected].name} ($${this.gmailScannable[log.detected].price.toFixed(2)}/mo)`;
+          item.innerText = `🔍 DETECTED in ${log.detectedEmail}: ${this.gmailScannable[log.detected].name} ($${this.gmailScannable[log.detected].price.toFixed(2)}/mo)`;
+          // Temporarily attach dynamic source email
+          this.gmailScannable[log.detected].detectedEmail = log.detectedEmail;
         } else {
           item.innerText = `> ${log.text}`;
         }
@@ -892,12 +989,12 @@ class SubscriptApp {
         logger.scrollTop = logger.scrollHeight;
 
         // Update progress bar percentage
-        const pct = (log.delay / 5800) * 100;
+        const pct = (log.delay / totalDuration) * 100;
         fill.style.width = `${pct}%`;
 
         // Update status text
-        if (log.delay < 1500) statusText.innerText = 'Connecting to Google API...';
-        else if (log.delay < 4500) statusText.innerText = 'Analyzing invoice receipts...';
+        if (log.delay < currentDelay * 0.3) statusText.innerText = 'Connecting to Google APIs...';
+        else if (log.delay < currentDelay * 0.8) statusText.innerText = 'Analyzing invoice receipts...';
         else statusText.innerText = 'Compiling list...';
 
       }, log.delay);
@@ -908,7 +1005,7 @@ class SubscriptApp {
       this.renderDetectedGmailList();
       document.getElementById('gmail-step-scanning').classList.add('d-none');
       document.getElementById('gmail-step-results').classList.remove('d-none');
-    }, 6200);
+    }, totalDuration + 400);
   }
 
   renderDetectedGmailList() {
@@ -917,6 +1014,7 @@ class SubscriptApp {
     this.selectedDetectedSubs = [...this.gmailScannable]; // default select all
 
     this.gmailScannable.forEach((sub, idx) => {
+      const subEmail = sub.detectedEmail || this.connectedEmails[0];
       const rowContainer = document.createElement('div');
       rowContainer.className = 'detected-item-row-container';
       rowContainer.style.border = '1px solid var(--border-color)';
@@ -933,6 +1031,7 @@ class SubscriptApp {
               <div>
                 <div class="detected-item-name" id="name-display-${idx}">${sub.name}</div>
                 <div class="detected-item-price" id="meta-display-${idx}">$${sub.price.toFixed(2)}/mo • Category: ${sub.category}</div>
+                <div style="font-size: 9px; color: var(--text-tertiary); margin-top: 2px;">Source: ${subEmail}</div>
               </div>
             </label>
           </div>
@@ -1055,7 +1154,8 @@ class SubscriptApp {
           isTeam: this.currentScope === 'team',
           owner: 'Alex (You)',
           priceHike: null,
-          cardId: this.currentScope === 'team' ? 'c2' : 'c1'
+          cardId: this.currentScope === 'team' ? 'c2' : 'c1',
+          detectedEmail: sub.detectedEmail || this.connectedEmails[0]
         });
       }
     });
@@ -1232,6 +1332,7 @@ class SubscriptApp {
 
     const subName = this.activeCancelSub.name;
     const recipient = `billing@${subName.toLowerCase().replace(/\s+/g, '')}.com`;
+    const sourceEmail = this.activeCancelSub.detectedEmail || (this.connectedEmails && this.connectedEmails[0]) || 'alex@office.co';
     
     document.getElementById('cancel-email-recipient').innerText = recipient;
 
@@ -1244,7 +1345,7 @@ I am writing to formally request the immediate cancellation of my subscription s
 
 Here are my account details:
 - Service Plan: Standard Subscription
-- Registered Email: alex@office.co
+- Registered Email: ${sourceEmail}
 - Effective Date: Immediately (${new Date().toLocaleDateString()})
 
 Please discontinue all recurring billing charges and confirm via reply to this email once the service has been terminated.
@@ -2707,6 +2808,52 @@ Alex`;
       opt.innerText = `${card.name} (${card.digits.slice(-4)})`;
       select.appendChild(opt);
     });
+  }
+
+  applyLayoutMode() {
+    const frame = document.querySelector('.phone-frame');
+    const toggleBtn = document.getElementById('toggle-layout-btn');
+    const svgIcon = document.getElementById('layout-icon-svg');
+
+    if (!frame) return;
+
+    if (this.layoutMode === 'desktop') {
+      frame.classList.add('desktop-mode');
+      if (toggleBtn) toggleBtn.title = "Switch to Mobile Frame Preview";
+      if (svgIcon) {
+        // Render Mobile Phone SVG icon inside button
+        svgIcon.innerHTML = `
+          <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+          <line x1="12" y1="18" x2="12.01" y2="18"/>
+        `;
+      }
+    } else {
+      frame.classList.remove('desktop-mode');
+      if (toggleBtn) toggleBtn.title = "Switch to Widescreen Desktop Mode";
+      if (svgIcon) {
+        // Render Desktop Monitor SVG icon inside button
+        svgIcon.innerHTML = `
+          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+          <line x1="8" y1="21" x2="16" y2="21"/>
+          <line x1="12" y1="17" x2="12" y2="21"/>
+        `;
+      }
+    }
+    
+    // Refresh canvas and SVG layouts since sizes might have shifted
+    setTimeout(() => {
+      this.renderSpendTrendChart();
+    }, 150);
+  }
+
+  toggleLayoutMode() {
+    this.layoutMode = this.layoutMode === 'desktop' ? 'mobile' : 'desktop';
+    localStorage.setItem('subscript_layout_mode', this.layoutMode);
+    this.applyLayoutMode();
+    this.showToast(
+      this.layoutMode === 'desktop' ? '🖥️ Desktop View' : '📱 Mobile Preview',
+      `Switched to ${this.layoutMode} layout mode successfully.`
+    );
   }
 }
 

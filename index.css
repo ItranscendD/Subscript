@@ -2819,4 +2819,210 @@ form input:focus, form select:focus {
   background-color: var(--accent-hover);
 }
 
+/* MULTIPLE EMAIL CONNECTIONS */
+.connected-emails-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 10px;
+}
+
+.connected-email-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-app);
+  border: 1px solid var(--border-color);
+  font-size: 12px;
+}
+
+.connected-email-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.connected-email-icon {
+  width: 14px;
+  height: 14px;
+  color: var(--text-secondary);
+}
+
+.connected-email-address {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.btn-remove-email {
+  background: none;
+  border: none;
+  color: #ef4444;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: var(--transition);
+}
+
+.btn-remove-email:hover {
+  background-color: rgba(239, 68, 68, 0.1);
+}
+
+.email-link-container {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+/* RESPONSIVE WIDESCREEN DESKTOP LAYOUT */
+@media (min-width: 769px) {
+  /* Layout switcher button styling */
+  .btn-toggle-layout {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    padding: 6px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+  }
+
+  .btn-toggle-layout:hover {
+    background-color: var(--bg-input);
+    color: var(--text-primary);
+  }
+
+  /* Desktop View State */
+  .phone-frame.desktop-mode {
+    width: 100%;
+    max-width: 1240px;
+    height: 90vh;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4);
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    grid-template-rows: 64px 1fr;
+    grid-template-areas:
+      "header header"
+      "sidebar main";
+  }
+
+  .phone-frame.desktop-mode .app-header {
+    grid-area: header;
+    height: 64px;
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+    background-color: var(--bg-app);
+  }
+
+  .phone-frame.desktop-mode .header-top {
+    width: 100%;
+  }
+
+  /* Sidebar configuration */
+  .phone-frame.desktop-mode .app-tabs {
+    grid-area: sidebar;
+    position: static;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    background-color: var(--bg-card);
+    border-right: 1px solid var(--border-color);
+    padding: 24px 14px;
+    gap: 8px;
+    height: 100%;
+    width: auto;
+    border-top: none;
+    box-shadow: none;
+  }
+
+  .phone-frame.desktop-mode .app-tabs .tab-btn {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 14px;
+    padding: 14px 18px;
+    border-radius: var(--radius-md);
+    width: 100%;
+    color: var(--text-secondary);
+    background: none;
+    transition: var(--transition);
+  }
+
+  .phone-frame.desktop-mode .app-tabs .tab-btn.active {
+    background-color: var(--bg-input);
+    color: var(--text-primary);
+  }
+
+  .phone-frame.desktop-mode .app-tabs .tab-btn .tab-icon {
+    width: 18px;
+    height: 18px;
+    margin-bottom: 0;
+  }
+
+  .phone-frame.desktop-mode .app-tabs .tab-btn span {
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  /* Body container configuration */
+  .phone-frame.desktop-mode .app-body {
+    grid-area: main;
+    padding: 32px;
+    overflow-y: auto;
+    background-color: var(--bg-app);
+  }
+
+  /* Hide mobile ornaments in desktop state */
+  .phone-frame.desktop-mode .phone-status-bar,
+  .phone-frame.desktop-mode .phone-home-indicator {
+    display: none !important;
+  }
+
+  /* Widescreen 2-column improvements */
+  .phone-frame.desktop-mode .tab-panel.active {
+    display: grid;
+    gap: 24px;
+  }
+
+  .phone-frame.desktop-mode #panel-list.tab-panel.active {
+    grid-template-columns: 1.5fr 1fr;
+    align-items: start;
+  }
+
+  .phone-frame.desktop-mode #panel-list .section-header {
+    grid-column: 1 / -1;
+  }
+
+  .phone-frame.desktop-mode #panel-insights.tab-panel.active {
+    grid-template-columns: 1.5fr 1fr;
+    align-items: start;
+  }
+
+  .phone-frame.desktop-mode #panel-insights .section-header {
+    grid-column: 1 / -1;
+  }
+
+  .phone-frame.desktop-mode #panel-insights .spend-chart-container {
+    grid-column: 1 / -1;
+  }
+}
+
+
+
 
