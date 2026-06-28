@@ -3023,6 +3023,83 @@ form input:focus, form select:focus {
   }
 }
 
+/* =============================================
+   FEEDBACK FAB + MODAL
+   ============================================= */
+
+.feedback-fab {
+  position: absolute;
+  bottom: 72px;
+  right: 14px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.10);
+  border: 1px solid rgba(255,255,255,0.18);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 90;
+  transition: background 0.2s, transform 0.15s;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.35);
+}
+
+.feedback-fab svg {
+  width: 17px;
+  height: 17px;
+}
+
+.feedback-fab:hover {
+  background: rgba(255,255,255,0.18);
+  transform: scale(1.08);
+}
+
+.feedback-fab:active {
+  transform: scale(0.95);
+}
+
+.feedback-sheet {
+  max-height: 85%;
+}
+
+/* =============================================
+   ONBOARDING NAME ROW
+   ============================================= */
+
+.onboarding-name-row {
+  padding: 0 4px;
+  margin-bottom: 18px;
+}
+
+.onboarding-name-input {
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--bg-input);
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 15px;
+  font-family: inherit;
+  font-weight: 600;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.onboarding-name-input:focus {
+  outline: none;
+  border-color: var(--text-primary);
+}
+
+.onboarding-name-input::placeholder {
+  color: var(--text-tertiary);
+  font-weight: 400;
+}
+
+
 
 
 

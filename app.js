@@ -3,17 +3,34 @@
  */
 
 class SubscriptApp {
+  // Returns today's date as YYYY-MM-DD string
+  todayStr() {
+    return new Date().toISOString().split('T')[0];
+  }
+
+  // Returns a date N days from today as YYYY-MM-DD
+  daysFromToday(n) {
+    const d = new Date();
+    d.setDate(d.getDate() + n);
+    return d.toISOString().split('T')[0];
+  }
+
   constructor() {
     this.currentTab = 'list';
     this.currentScope = 'personal'; // 'personal' or 'team'
-    
-    // Calendar state
-    this.calendarYear = 2026;
-    this.calendarMonth = 4; // May (0-indexed, so 4 is May)
+
+    // Load persisted user name (set during onboarding)
+    this.userName = localStorage.getItem('subscript_user_name') || 'You';
+
+    // Calendar state — default to current month
+    const now = new Date();
+    this.calendarYear = now.getFullYear();
+    this.calendarMonth = now.getMonth(); // 0-indexed
     
     // Core state
     this.dismissedRedundancies = JSON.parse(localStorage.getItem('subscript_dismissed_redundancies')) || [];
 
+    const ownerLabel = this.userName !== 'You' ? `${this.userName} (You)` : 'You';
     const defaultSubs = [
       {
         id: 1,
@@ -21,16 +38,16 @@ class SubscriptApp {
         price: 15.49,
         cycle: 'monthly',
         category: 'Entertainment',
-        nextRenewal: '2026-05-28',
+        nextRenewal: this.daysFromToday(5),
         isTrial: false,
         trialEnd: null,
         isCancelled: false,
         isTeam: false,
-        owner: 'Alex (You)',
+        owner: ownerLabel,
         priceHike: {
           originalPrice: 13.49,
           newPrice: 15.49,
-          date: '2026-05-01'
+          date: this.daysFromToday(-7)
         }
       },
       {
@@ -39,12 +56,12 @@ class SubscriptApp {
         price: 10.99,
         cycle: 'monthly',
         category: 'Music',
-        nextRenewal: '2026-06-04',
+        nextRenewal: this.daysFromToday(12),
         isTrial: false,
         trialEnd: null,
         isCancelled: false,
         isTeam: false,
-        owner: 'Alex (You)',
+        owner: ownerLabel,
         priceHike: null
       },
       {
@@ -53,12 +70,12 @@ class SubscriptApp {
         price: 10.99,
         cycle: 'monthly',
         category: 'Music',
-        nextRenewal: '2026-06-10',
+        nextRenewal: this.daysFromToday(18),
         isTrial: false,
         trialEnd: null,
         isCancelled: false,
         isTeam: false,
-        owner: 'Alex (You)',
+        owner: ownerLabel,
         priceHike: null
       },
       {
@@ -67,12 +84,12 @@ class SubscriptApp {
         price: 15.00,
         cycle: 'monthly',
         category: 'SaaS & Dev Tools',
-        nextRenewal: '2026-05-24', // Tomorrow relative to May 23, 2026
+        nextRenewal: this.daysFromToday(1),
         isTrial: true,
-        trialEnd: '2026-05-23', // Ends today!
+        trialEnd: this.todayStr(), // Trial ends today!
         isCancelled: false,
         isTeam: false,
-        owner: 'Alex (You)',
+        owner: ownerLabel,
         priceHike: null
       },
       {
@@ -81,12 +98,12 @@ class SubscriptApp {
         price: 8.00,
         cycle: 'monthly',
         category: 'Productivity',
-        nextRenewal: '2026-06-14',
+        nextRenewal: this.daysFromToday(22),
         isTrial: false,
         trialEnd: null,
         isCancelled: false,
         isTeam: false,
-        owner: 'Alex (You)',
+        owner: ownerLabel,
         priceHike: null
       },
       // Team Stack Subs
@@ -96,12 +113,12 @@ class SubscriptApp {
         price: 26.25, // 3 seats
         cycle: 'monthly',
         category: 'SaaS & Dev Tools',
-        nextRenewal: '2026-06-02',
+        nextRenewal: this.daysFromToday(8),
         isTrial: false,
         trialEnd: null,
         isCancelled: false,
         isTeam: true,
-        owner: 'Alex (You)',
+        owner: ownerLabel,
         priceHike: null
       },
       {
@@ -110,7 +127,7 @@ class SubscriptApp {
         price: 20.00,
         cycle: 'monthly',
         category: 'SaaS & Dev Tools',
-        nextRenewal: '2026-06-07',
+        nextRenewal: this.daysFromToday(14),
         isTrial: false,
         trialEnd: null,
         isCancelled: false,
@@ -124,7 +141,7 @@ class SubscriptApp {
         price: 20.00,
         cycle: 'monthly',
         category: 'Productivity',
-        nextRenewal: '2026-05-26',
+        nextRenewal: this.daysFromToday(3),
         isTrial: false,
         trialEnd: null,
         isCancelled: false,
@@ -133,7 +150,7 @@ class SubscriptApp {
         priceHike: {
           originalPrice: 0.00, // Upgraded from free
           newPrice: 20.00,
-          date: '2026-05-15'
+          date: this.daysFromToday(-14)
         }
       }
     ];
@@ -176,8 +193,8 @@ class SubscriptApp {
       {
         id: 'n1',
         type: 'trial',
-        title: 'Trial Expiring Tomorrow',
-        desc: 'Your Figma Pro free trial ends in 24 hours. A $15.00 charge will apply on May 24.',
+        title: 'Trial Expiring Today',
+        desc: 'Your Figma Pro free trial ends today. A $15.00 charge will apply tomorrow.',
         time: 'Just now',
         subId: 4
       },
@@ -349,7 +366,8 @@ class SubscriptApp {
     trialSubs.forEach(sub => {
       if (sub.trialEnd) {
         const end = new Date(sub.trialEnd);
-        const today = new Date('2026-05-23'); // Hardcoded simulated today
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
         const msDiff = end.getTime() - today.getTime();
         const daysDiff = Math.ceil(msDiff / (1000 * 60 * 60 * 24));
         
@@ -481,7 +499,7 @@ class SubscriptApp {
     });
 
     // Populate day cells
-    const simulatedTodayStr = '2026-05-23';
+    const simulatedTodayStr = this.todayStr();
     for (let day = 1; day <= totalDays; day++) {
       const monthStr = (this.calendarMonth + 1).toString().padStart(2, '0');
       const dayStr = day.toString().padStart(2, '0');
@@ -772,7 +790,7 @@ class SubscriptApp {
       trialEnd,
       isCancelled: false,
       isTeam: isTeam,
-      owner: 'Alex (You)',
+      owner: this.userName !== 'You' ? `${this.userName} (You)` : 'You',
       priceHike: null,
       cardId: cardId
     };
@@ -1332,10 +1350,12 @@ class SubscriptApp {
 
     const subName = this.activeCancelSub.name;
     const recipient = `billing@${subName.toLowerCase().replace(/\s+/g, '')}.com`;
-    const sourceEmail = this.activeCancelSub.detectedEmail || (this.connectedEmails && this.connectedEmails[0]) || 'alex@office.co';
+    const userEmail = localStorage.getItem('subscript_user_email') || (this.connectedEmails && this.connectedEmails[0]) || 'user@example.com';
+    const sourceEmail = this.activeCancelSub.detectedEmail || userEmail;
     
     document.getElementById('cancel-email-recipient').innerText = recipient;
 
+    const sigName = this.userName !== 'You' ? this.userName : 'Subscriber';
     const emailBody = `To: ${recipient}
 Subject: ACCOUNT CANCELLATION REQUEST - ${subName}
 
@@ -1351,7 +1371,7 @@ Here are my account details:
 Please discontinue all recurring billing charges and confirm via reply to this email once the service has been terminated.
 
 Sincerely,
-Alex`;
+${sigName}`;
 
     document.getElementById('cancel-email-body').innerText = emailBody;
   }
@@ -1959,7 +1979,7 @@ Alex`;
     stepContainer.style.flexDirection = 'column';
     stepContainer.style.height = '100%';
 
-    // Step 1: Welcome & Path Selection
+    // Step 1: Welcome & Name + Path Selection
     if (this.onboardingStep === 1) {
       stepContainer.innerHTML = `
         <div class="onboarding-header">
@@ -1967,8 +1987,15 @@ Alex`;
           <p class="onboarding-subtitle">Your centralized workspace to track, scan, and cancel subscription spend before you get charged.</p>
         </div>
 
+        <div class="onboarding-name-row">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="ob-user-name" style="font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-tertiary); margin-bottom:6px; display:block;">Your First Name</label>
+            <input type="text" id="ob-user-name" class="onboarding-name-input" placeholder="e.g. Alex" autocomplete="given-name" maxlength="30">
+          </div>
+        </div>
+
         <div class="onboarding-cards-stack">
-          <div class="onboarding-card" onclick="app.selectOnboardingBranch('individual')">
+          <div class="onboarding-card" onclick="app.saveNameAndBranch('individual')">
             <div class="onboarding-card-icon">👤</div>
             <div class="onboarding-card-content">
               <h3>Track Personal Spend</h3>
@@ -1976,7 +2003,7 @@ Alex`;
             </div>
           </div>
 
-          <div class="onboarding-card" onclick="app.selectOnboardingBranch('team')">
+          <div class="onboarding-card" onclick="app.saveNameAndBranch('team')">
             <div class="onboarding-card-icon">👥</div>
             <div class="onboarding-card-content">
               <h3>Manage Team Stack</h3>
@@ -1989,6 +2016,11 @@ Alex`;
           <button type="button" class="onboarding-skip-btn" onclick="app.skipOnboarding()">Skip & load default dashboard</button>
         </div>
       `;
+      // Pre-fill if name was previously stored
+      setTimeout(() => {
+        const nameEl = document.getElementById('ob-user-name');
+        if (nameEl && this.userName !== 'You') nameEl.value = this.userName;
+      }, 30);
     }
 
     // Step 2: Branch Specific Configuration
@@ -2293,10 +2325,7 @@ Alex`;
   }
 
   saveTeamPresets() {
-    const tomorrowStr = new Date();
-    tomorrowStr.setDate(tomorrowStr.getDate() + 5);
-    const renewalStr = tomorrowStr.toISOString().split('T')[0];
-
+    const ownerLabel = this.userName !== 'You' ? `${this.userName} (You)` : 'You';
     this.selectedOnboardingPresets.forEach(preset => {
       this.subscriptions.push({
         id: Date.now() + Math.random(),
@@ -2304,12 +2333,12 @@ Alex`;
         price: preset.price,
         cycle: 'monthly',
         category: preset.category,
-        nextRenewal: renewalStr,
+        nextRenewal: this.daysFromToday(5),
         isTrial: false,
         trialEnd: null,
         isCancelled: false,
         isTeam: true,
-        owner: 'Alex (You)',
+        owner: ownerLabel,
         priceHike: null
       });
     });
@@ -2326,6 +2355,7 @@ Alex`;
     const renewal = document.getElementById('ob-sub-renewal').value;
     const category = document.getElementById('ob-sub-category').value;
 
+    const ownerLabel = this.userName !== 'You' ? `${this.userName} (You)` : 'You';
     this.subscriptions.push({
       id: Date.now(),
       name,
@@ -2337,7 +2367,7 @@ Alex`;
       trialEnd: null,
       isCancelled: false,
       isTeam: false,
-      owner: 'Alex (You)',
+      owner: ownerLabel,
       priceHike: null
     });
 
@@ -2365,7 +2395,8 @@ Alex`;
     this.switchScope(this.currentScope);
     this.renderAll();
 
-    this.showToast('🚀 Setup Complete', `Welcome to Subscript! Let's manage your subscriptions.`);
+    const greeting = this.userName !== 'You' ? `Welcome, ${this.userName}!` : 'Welcome to Subscript!';
+    this.showToast('🚀 Setup Complete', `${greeting} Let's manage your subscriptions.`);
   }
 
   skipOnboarding() {
@@ -2379,6 +2410,10 @@ Alex`;
       localStorage.removeItem('subscript_subscriptions');
       localStorage.removeItem('subscript_notifications');
       localStorage.removeItem('subscript_dismissed_redundancies');
+      localStorage.removeItem('subscript_user_name');
+      localStorage.removeItem('subscript_user_email');
+      localStorage.removeItem('subscript_virtual_cards');
+      localStorage.removeItem('subscript_connected_emails');
       window.location.reload();
     }
   }
@@ -2388,14 +2423,50 @@ Alex`;
     this.activeTimeouts = [];
   }
 
+  // Saves name from onboarding step 1 and proceeds to branch selection
+  saveNameAndBranch(branch) {
+    const nameEl = document.getElementById('ob-user-name');
+    const rawName = nameEl ? nameEl.value.trim() : '';
+    if (rawName) {
+      this.userName = rawName;
+      localStorage.setItem('subscript_user_name', rawName);
+    }
+    this.selectOnboardingBranch(branch);
+  }
+
+  // Feedback modal
+  openFeedbackModal() {
+    document.getElementById('feedback-modal').classList.add('active');
+    setTimeout(() => document.getElementById('feedback-textarea').focus(), 100);
+  }
+
+  closeFeedbackModal() {
+    document.getElementById('feedback-modal').classList.remove('active');
+  }
+
+  submitFeedback() {
+    const text = document.getElementById('feedback-textarea').value.trim();
+    if (!text) return;
+    const type = document.getElementById('feedback-type').value;
+    const name = this.userName !== 'You' ? this.userName : 'Tester';
+    const payload = { from: name, type, message: text, ts: new Date().toISOString() };
+    // Copy to clipboard so tester can share
+    navigator.clipboard.writeText(JSON.stringify(payload, null, 2)).catch(() => {});
+    console.log('[Subscript Feedback]', payload);
+    document.getElementById('feedback-textarea').value = '';
+    this.closeFeedbackModal();
+    this.showToast('💬 Feedback Sent', 'Thanks! Your feedback has been recorded and copied to clipboard.', null, false);
+  }
+
   renderSpendTrendChart() {
     const wrapper = document.getElementById('chart-svg-wrapper');
     if (!wrapper) return;
 
     const months = [];
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    let cy = 2026;
-    let cm = 4; // May (0-indexed)
+    const nowDate = new Date();
+    let cy = nowDate.getFullYear();
+    let cm = nowDate.getMonth(); // current month (0-indexed)
 
     for (let i = 0; i < 6; i++) {
       months.push({ year: cy, month: cm, label: monthNames[cm] });
