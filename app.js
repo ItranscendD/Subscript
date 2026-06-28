@@ -30,132 +30,8 @@ class SubscriptApp {
     // Core state
     this.dismissedRedundancies = JSON.parse(localStorage.getItem('subscript_dismissed_redundancies')) || [];
 
-    const ownerLabel = this.userName !== 'You' ? `${this.userName} (You)` : 'You';
-    const defaultSubs = [
-      {
-        id: 1,
-        name: 'Netflix',
-        price: 15.49,
-        cycle: 'monthly',
-        category: 'Entertainment',
-        nextRenewal: this.daysFromToday(5),
-        isTrial: false,
-        trialEnd: null,
-        isCancelled: false,
-        isTeam: false,
-        owner: ownerLabel,
-        priceHike: {
-          originalPrice: 13.49,
-          newPrice: 15.49,
-          date: this.daysFromToday(-7)
-        }
-      },
-      {
-        id: 2,
-        name: 'Spotify',
-        price: 10.99,
-        cycle: 'monthly',
-        category: 'Music',
-        nextRenewal: this.daysFromToday(12),
-        isTrial: false,
-        trialEnd: null,
-        isCancelled: false,
-        isTeam: false,
-        owner: ownerLabel,
-        priceHike: null
-      },
-      {
-        id: 3,
-        name: 'Apple Music',
-        price: 10.99,
-        cycle: 'monthly',
-        category: 'Music',
-        nextRenewal: this.daysFromToday(18),
-        isTrial: false,
-        trialEnd: null,
-        isCancelled: false,
-        isTeam: false,
-        owner: ownerLabel,
-        priceHike: null
-      },
-      {
-        id: 4,
-        name: 'Figma Pro',
-        price: 15.00,
-        cycle: 'monthly',
-        category: 'SaaS & Dev Tools',
-        nextRenewal: this.daysFromToday(1),
-        isTrial: true,
-        trialEnd: this.todayStr(), // Trial ends today!
-        isCancelled: false,
-        isTeam: false,
-        owner: ownerLabel,
-        priceHike: null
-      },
-      {
-        id: 5,
-        name: 'Notion Plus',
-        price: 8.00,
-        cycle: 'monthly',
-        category: 'Productivity',
-        nextRenewal: this.daysFromToday(22),
-        isTrial: false,
-        trialEnd: null,
-        isCancelled: false,
-        isTeam: false,
-        owner: ownerLabel,
-        priceHike: null
-      },
-      // Team Stack Subs
-      {
-        id: 101,
-        name: 'Slack Pro',
-        price: 26.25, // 3 seats
-        cycle: 'monthly',
-        category: 'SaaS & Dev Tools',
-        nextRenewal: this.daysFromToday(8),
-        isTrial: false,
-        trialEnd: null,
-        isCancelled: false,
-        isTeam: true,
-        owner: ownerLabel,
-        priceHike: null
-      },
-      {
-        id: 102,
-        name: 'Vercel Team',
-        price: 20.00,
-        cycle: 'monthly',
-        category: 'SaaS & Dev Tools',
-        nextRenewal: this.daysFromToday(14),
-        isTrial: false,
-        trialEnd: null,
-        isCancelled: false,
-        isTeam: true,
-        owner: 'Sarah Connor',
-        priceHike: null
-      },
-      {
-        id: 103,
-        name: 'ChatGPT Plus',
-        price: 20.00,
-        cycle: 'monthly',
-        category: 'Productivity',
-        nextRenewal: this.daysFromToday(3),
-        isTrial: false,
-        trialEnd: null,
-        isCancelled: false,
-        isTeam: true,
-        owner: 'Mike (PM)',
-        priceHike: {
-          originalPrice: 0.00, // Upgraded from free
-          newPrice: 20.00,
-          date: this.daysFromToday(-14)
-        }
-      }
-    ];
-
-    this.subscriptions = JSON.parse(localStorage.getItem('subscript_subscriptions')) || defaultSubs;
+    // New users start empty — subscriptions are added during or after onboarding
+    this.subscriptions = JSON.parse(localStorage.getItem('subscript_subscriptions')) || [];
 
     // Load or initialize Virtual Cards
     const defaultCards = [
@@ -183,32 +59,15 @@ class SubscriptApp {
       }
     });
 
-    this.teammates = [
-      { id: 't1', name: 'Alex (You)', email: 'alex@office.co', role: 'Owner', status: 'active' },
-      { id: 't2', name: 'Sarah Connor', email: 'sarah@office.co', role: 'Admin', status: 'active' },
-      { id: 't3', name: 'Mike (PM)', email: 'mike@office.co', role: 'Contributor', status: 'active' }
+    // Owner-only teammate list; teammates can be added from Settings/Team
+    const ownerName = this.userName !== 'You' ? `${this.userName} (You)` : 'You';
+    const ownerEmail = localStorage.getItem('subscript_user_email') || '';
+    this.teammates = JSON.parse(localStorage.getItem('subscript_teammates')) || [
+      { id: 't1', name: ownerName, email: ownerEmail, role: 'Owner', status: 'active' }
     ];
 
-    const defaultNotifs = [
-      {
-        id: 'n1',
-        type: 'trial',
-        title: 'Trial Expiring Today',
-        desc: 'Your Figma Pro free trial ends today. A $15.00 charge will apply tomorrow.',
-        time: 'Just now',
-        subId: 4
-      },
-      {
-        id: 'n2',
-        type: 'price-hike',
-        title: 'Price Increase: Netflix',
-        desc: 'Netflix increased its rate from $13.49 to $15.49 (+$2.00/mo) starting this billing cycle.',
-        time: '2 hours ago',
-        subId: 1
-      }
-    ];
-
-    this.notifications = JSON.parse(localStorage.getItem('subscript_notifications')) || defaultNotifs;
+    // No pre-seeded notifications — generated dynamically from real subscription data
+    this.notifications = JSON.parse(localStorage.getItem('subscript_notifications')) || [];
 
     this.gmailScannable = [
       { name: 'Adobe Creative Cloud', price: 54.99, cycle: 'monthly', category: 'Productivity' },
@@ -217,8 +76,8 @@ class SubscriptApp {
       { name: 'Zoom Pro', price: 14.99, cycle: 'monthly', category: 'SaaS & Dev Tools' }
     ];
 
-    // Load or initialize Connected Emails list
-    this.connectedEmails = JSON.parse(localStorage.getItem('subscript_connected_emails')) || ['alex@office.co'];
+    // Load or initialize Connected Emails list (populated during onboarding)
+    this.connectedEmails = JSON.parse(localStorage.getItem('subscript_connected_emails')) || [];
 
     // Load Widescreen Layout state
     this.layoutMode = localStorage.getItem('subscript_layout_mode') || 'desktop';
@@ -242,13 +101,8 @@ class SubscriptApp {
     if (!this.onboardingCompleted) {
       this.startOnboarding();
     } else {
-      setTimeout(() => {
-        // Only trigger initial Figma Pro toast if notifications list has it
-        const hasFigmaAlert = this.notifications.some(n => n.subId === 4 && n.type === 'trial');
-        if (hasFigmaAlert) {
-          this.showToast('🚨 Trial Ending', 'Figma Pro trial charges in 24 hours. Click to manage.', 4);
-        }
-      }, 1500);
+      // Check and fire real browser notifications once per day
+      setTimeout(() => this.checkAndFireNotifications(), 1500);
     }
   }
 
@@ -292,6 +146,7 @@ class SubscriptApp {
     localStorage.setItem('subscript_dismissed_redundancies', JSON.stringify(this.dismissedRedundancies));
     localStorage.setItem('subscript_virtual_cards', JSON.stringify(this.virtualCards));
     localStorage.setItem('subscript_connected_emails', JSON.stringify(this.connectedEmails));
+    localStorage.setItem('subscript_teammates', JSON.stringify(this.teammates));
   }
 
   // Financial Metrics: Monthly Burn & Annualized Projection
@@ -417,7 +272,22 @@ class SubscriptApp {
     });
 
     if (filtered.length === 0) {
-      container.innerHTML = `<div class="text-center text-muted" style="padding: 40px 0; font-size:13px;">No subscriptions found.</div>`;
+      // Check if there are truly no subs for this scope (not just filtered out)
+      const hasAnyScopeData = this.subscriptions.some(s =>
+        this.currentScope === 'team' ? s.isTeam : !s.isTeam
+      );
+      if (!hasAnyScopeData) {
+        container.innerHTML = `
+          <div class="subs-empty-state">
+            <div class="subs-empty-icon">📋</div>
+            <h3 class="subs-empty-title">No subscriptions yet</h3>
+            <p class="subs-empty-desc">Add your first subscription to start tracking your monthly spend and get renewal alerts.</p>
+            <button class="btn btn-primary subs-empty-cta" onclick="app.switchTab('add')">+ Add Subscription</button>
+          </div>
+        `;
+      } else {
+        container.innerHTML = `<div class="text-center text-muted" style="padding: 40px 0; font-size:13px;">No results match your search.</div>`;
+      }
       return;
     }
 
@@ -1963,7 +1833,7 @@ ${sigName}`;
 
   selectOnboardingBranch(branch) {
     this.onboardingBranch = branch;
-    this.onboardingStep = 2;
+    this.onboardingStep = 4; // Step 4: email scan (individual) or workspace name (team)
     this.renderOnboardingStep();
   }
 
@@ -1979,149 +1849,193 @@ ${sigName}`;
     stepContainer.style.flexDirection = 'column';
     stepContainer.style.height = '100%';
 
-    // Step 1: Welcome & Name + Path Selection
+    // ─── STEP 1: Welcome — name entry, NO SKIP allowed ───────────────────────────
     if (this.onboardingStep === 1) {
       stepContainer.innerHTML = `
-        <div class="onboarding-header">
-          <div class="onboarding-logo">SUBSCRIPT</div>
-          <p class="onboarding-subtitle">Your centralized workspace to track, scan, and cancel subscription spend before you get charged.</p>
+        <div class="ob-splash-hero">
+          <div class="ob-splash-logomark">S</div>
+          <div class="ob-splash-brand">SUBSCRIPT</div>
+          <p class="ob-splash-tagline">Track. Alert. Cancel.<br>Before you're charged.</p>
         </div>
-
-        <div class="onboarding-name-row">
-          <div class="form-group" style="margin-bottom: 0;">
-            <label for="ob-user-name" style="font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-tertiary); margin-bottom:6px; display:block;">Your First Name</label>
-            <input type="text" id="ob-user-name" class="onboarding-name-input" placeholder="e.g. Alex" autocomplete="given-name" maxlength="30">
-          </div>
-        </div>
-
-        <div class="onboarding-cards-stack">
-          <div class="onboarding-card" onclick="app.saveNameAndBranch('individual')">
-            <div class="onboarding-card-icon">👤</div>
-            <div class="onboarding-card-content">
-              <h3>Track Personal Spend</h3>
-              <p>Consolidate Netflix, Spotify, iCloud. Get trial countdown alerts, detect overlaps, and cancel in one click.</p>
-            </div>
-          </div>
-
-          <div class="onboarding-card" onclick="app.saveNameAndBranch('team')">
-            <div class="onboarding-card-icon">👥</div>
-            <div class="onboarding-card-content">
-              <h3>Manage Team Stack</h3>
-              <p>Coordinate Slack, Zoom, AWS, ChatGPT. Assign seat allocations, invite coworkers, and optimize group licensing.</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="onboarding-footer-nav">
-          <button type="button" class="onboarding-skip-btn" onclick="app.skipOnboarding()">Skip & load default dashboard</button>
+        <div class="ob-welcome-form">
+          <label class="ob-field-label" for="ob-user-name">YOUR NAME</label>
+          <input type="text" id="ob-user-name" class="onboarding-name-input" placeholder="e.g. Alex" autocomplete="given-name" maxlength="30">
+          <button type="button" class="btn btn-primary w-100 ob-get-started" onclick="app.proceedFromWelcome()">Get Started →</button>
+          <p class="ob-legal-text">By continuing you agree to our Terms &amp; Privacy Policy.</p>
         </div>
       `;
-      // Pre-fill if name was previously stored
       setTimeout(() => {
-        const nameEl = document.getElementById('ob-user-name');
-        if (nameEl && this.userName !== 'You') nameEl.value = this.userName;
-      }, 30);
+        const el = document.getElementById('ob-user-name');
+        if (el) { if (this.userName !== 'You') el.value = this.userName; el.focus(); }
+      }, 100);
     }
 
-    // Step 2: Branch Specific Configuration
+    // ─── STEP 2: Enable Notifications ────────────────────────────────────────────
     else if (this.onboardingStep === 2) {
+      stepContainer.innerHTML = `
+        <div class="ob-notif-hero">
+          <div class="ob-bell-wrapper">
+            <div class="ob-bell-ring"></div>
+            <div class="ob-bell-ring ob-bell-ring-2"></div>
+            <div class="ob-bell-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="32" height="32">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9Z"/>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0" fill="currentColor" stroke="none"/>
+              </svg>
+            </div>
+          </div>
+          <h2 class="ob-notif-heading">Never miss a charge</h2>
+          <p class="ob-notif-sub">Get real-time alerts before your card gets hit.</p>
+        </div>
+        <div class="ob-notif-perks">
+          <div class="ob-perk-row"><span class="ob-perk-icon">⏳</span><span><strong>Trial countdowns</strong> — know when free turns paid</span></div>
+          <div class="ob-perk-row"><span class="ob-perk-icon">💳</span><span><strong>Renewal alerts</strong> — 3 days before you're charged</span></div>
+          <div class="ob-perk-row"><span class="ob-perk-icon">📈</span><span><strong>Price hike warnings</strong> — spot rate changes instantly</span></div>
+        </div>
+        <div class="ob-notif-actions">
+          <button type="button" class="btn btn-primary w-100" onclick="app.enableNotificationsStep()">🔔 Enable Notifications</button>
+          <button type="button" class="ob-skip-link" onclick="app.skipNotificationsStep()">Not now, I'll check manually</button>
+        </div>
+      `;
+    }
+
+    // ─── STEP 3: Path Selection (Personal vs Team) ────────────────────────────────
+    else if (this.onboardingStep === 3) {
+      stepContainer.innerHTML = `
+        <div class="onboarding-header">
+          <div class="onboarding-logo">WHAT ARE YOU TRACKING?</div>
+          <p class="onboarding-subtitle">Choose your focus — you can switch between views anytime.</p>
+        </div>
+        <div class="onboarding-cards-stack" style="flex:1;">
+          <div class="onboarding-card" onclick="app.selectOnboardingBranch('individual')">
+            <div class="onboarding-card-icon">👤</div>
+            <div class="onboarding-card-content">
+              <h3>Personal Spend</h3>
+              <p>Netflix, Spotify, iCloud — track your subscriptions and cancel before you're ever charged again.</p>
+            </div>
+          </div>
+          <div class="onboarding-card" onclick="app.selectOnboardingBranch('team')">
+            <div class="onboarding-card-icon">👥</div>
+            <div class="onboarding-card-content">
+              <h3>Team Stack</h3>
+              <p>Slack, AWS, Zoom — manage group licenses, assign seats, and eliminate wasted spend.</p>
+            </div>
+          </div>
+        </div>
+        <div class="onboarding-footer-nav">
+          <div class="onboarding-progress">
+            <div class="progress-dot active"></div>
+            <div class="progress-dot active"></div>
+            <div class="progress-dot active"></div>
+            <div class="progress-dot"></div>
+            <div class="progress-dot"></div>
+          </div>
+        </div>
+      `;
+    }
+
+    // ─── STEP 4: Email Scan (individual) | Workspace Name (team) ─────────────────
+    else if (this.onboardingStep === 4) {
       if (this.onboardingBranch === 'individual') {
-        // Individual Step 2: Auto Import / Connect Gmail
         stepContainer.innerHTML = `
           <div class="onboarding-header">
-            <div class="onboarding-logo">AUTO IMPORT</div>
-            <p class="onboarding-subtitle">Connect your Gmail mailbox to instantly find existing subscriptions from receipt headers.</p>
+            <div class="onboarding-logo">SCAN YOUR INBOX</div>
+            <p class="onboarding-subtitle">Enter your email — Subscript finds active subscriptions from billing receipts automatically.</p>
           </div>
 
-          <div class="import-card" style="margin-top: 10px;">
+          <div class="import-card" style="margin-top:10px; flex:1;">
             <div class="import-icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                 <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
               </svg>
             </div>
-            <h3>Gmail Header Sync</h3>
-            <p>Subscript parses only billing receipts (subject lines & costs) securely using OAuth. Your mail content remains completely private.</p>
-            <button type="button" class="btn btn-primary w-100" onclick="app.openGmailModal()">Scan Inbox Receipts</button>
+            <h3>Gmail Receipt Scan</h3>
+            <div class="form-group" style="margin-top:14px;">
+              <label class="ob-field-label">YOUR EMAIL ADDRESS</label>
+              <input type="email" id="ob-email-input" class="onboarding-name-input" placeholder="you@gmail.com" autocomplete="email">
+            </div>
+            <p style="font-size:10px; color:var(--text-tertiary); margin:8px 0 14px; line-height:1.5;">Subscript reads only billing receipt subject lines via OAuth. Your email content stays completely private.</p>
+            <button type="button" class="btn btn-primary w-100" onclick="app.startOnboardingGmailScan()">🔍 Scan My Inbox</button>
           </div>
 
           <div class="onboarding-footer-nav">
             <div class="onboarding-progress">
-              <div class="progress-dot"></div>
+              <div class="progress-dot active"></div>
+              <div class="progress-dot active"></div>
+              <div class="progress-dot active"></div>
               <div class="progress-dot active"></div>
               <div class="progress-dot"></div>
             </div>
-            <div style="display:flex; justify-content:space-between; width:100%;">
-              <button type="button" class="btn btn-secondary" onclick="app.setStep(1)">Back</button>
-              <button type="button" class="btn btn-primary" onclick="app.setStep(3)">Add Manually</button>
+            <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
+              <button type="button" class="btn btn-secondary" onclick="app.setStep(3)">Back</button>
+              <button type="button" class="ob-skip-link" style="font-size:11px;" onclick="app.setStep(5)">Add manually instead →</button>
             </div>
           </div>
         `;
+        setTimeout(() => {
+          const emailEl = document.getElementById('ob-email-input');
+          if (emailEl && this.connectedEmails.length > 0) emailEl.value = this.connectedEmails[0];
+        }, 50);
       } else {
-        // Team Step 2: Enter Team Details
+        // Team Step 4: workspace name
         stepContainer.innerHTML = `
           <div class="onboarding-header">
-            <div class="onboarding-logo">TEAM STACK</div>
-            <p class="onboarding-subtitle">Define the organization workspace to aggregate group subscription costs.</p>
+            <div class="onboarding-logo">YOUR WORKSPACE</div>
+            <p class="onboarding-subtitle">Define your team workspace to start tracking group subscription costs.</p>
           </div>
 
-          <form id="onboarding-team-form" onsubmit="event.preventDefault(); app.saveTeamDetails();" style="margin-top: 10px;">
+          <form id="onboarding-team-form" onsubmit="event.preventDefault(); app.saveTeamDetails();" style="margin-top:10px;">
             <div class="form-group">
-              <label for="ob-team-name">Workspace/Team Name</label>
-              <input type="text" id="ob-team-name" placeholder="e.g. Acme Corp, Design Stack" required>
+              <label for="ob-team-name" class="ob-field-label">WORKSPACE NAME</label>
+              <input type="text" id="ob-team-name" placeholder="e.g. Acme Corp, Design Team" required>
             </div>
-            
             <div class="form-group">
-              <label for="ob-team-category">Primary Department/Focus</label>
+              <label for="ob-team-category" class="ob-field-label">PRIMARY FOCUS</label>
               <select id="ob-team-category">
-                <option value="Productivity & SaaS">Productivity & SaaS</option>
-                <option value="Design & Creatives">Design & Creatives</option>
-                <option value="Engineering & DevOps">Engineering & DevOps</option>
-                <option value="Marketing & Growth">Marketing & Growth</option>
+                <option value="Productivity & SaaS">Productivity &amp; SaaS</option>
+                <option value="Design & Creatives">Design &amp; Creatives</option>
+                <option value="Engineering & DevOps">Engineering &amp; DevOps</option>
+                <option value="Marketing & Growth">Marketing &amp; Growth</option>
               </select>
             </div>
-            
-            <button type="submit" class="btn btn-primary w-100" style="margin-top: 10px;">Continue</button>
+            <button type="submit" class="btn btn-primary w-100" style="margin-top:10px;">Continue →</button>
           </form>
 
           <div class="onboarding-footer-nav">
             <div class="onboarding-progress">
-              <div class="progress-dot"></div>
+              <div class="progress-dot active"></div>
+              <div class="progress-dot active"></div>
+              <div class="progress-dot active"></div>
               <div class="progress-dot active"></div>
               <div class="progress-dot"></div>
-              <div class="progress-dot"></div>
             </div>
-            <button type="button" class="btn btn-secondary align-self-start" style="width: fit-content;" onclick="app.setStep(1)">Back</button>
+            <button type="button" class="btn btn-secondary align-self-start" style="width:fit-content;" onclick="app.setStep(3)">Back</button>
           </div>
         `;
       }
     }
 
-    // Step 3: Preset Selections / First item
-    else if (this.onboardingStep === 3) {
+    // ─── STEP 5: First Sub Manual Add (individual) | Team Presets (team) ──────────
+    else if (this.onboardingStep === 5) {
       if (this.onboardingBranch === 'individual') {
-        // Individual Step 3: Presets & First manual sub
         stepContainer.innerHTML = `
           <div class="onboarding-header">
-            <div class="onboarding-logo">FIRST SERVICE</div>
-            <p class="onboarding-subtitle">Pick from popular presets or write one manually to complete your stack setup.</p>
+            <div class="onboarding-logo">YOUR FIRST SUB</div>
+            <p class="onboarding-subtitle">Pick a preset or enter one manually — you can add more anytime from the dashboard.</p>
           </div>
 
           <div class="presets-grid">
             <div class="preset-chip" onclick="app.selectPresetSub('Netflix', 15.49, 'Entertainment', 'monthly')">
-              <span class="preset-name">Netflix</span>
-              <span class="preset-price">$15.49/mo</span>
+              <span class="preset-name">Netflix</span><span class="preset-price">$15.49/mo</span>
             </div>
             <div class="preset-chip" onclick="app.selectPresetSub('Spotify', 10.99, 'Music', 'monthly')">
-              <span class="preset-name">Spotify</span>
-              <span class="preset-price">$10.99/mo</span>
+              <span class="preset-name">Spotify</span><span class="preset-price">$10.99/mo</span>
             </div>
             <div class="preset-chip" onclick="app.selectPresetSub('Notion Plus', 8.00, 'Productivity', 'monthly')">
-              <span class="preset-name">Notion</span>
-              <span class="preset-price">$8.00/mo</span>
+              <span class="preset-name">Notion</span><span class="preset-price">$8.00/mo</span>
             </div>
             <div class="preset-chip" onclick="app.selectPresetSub('Figma Pro', 15.00, 'SaaS & Dev Tools', 'monthly')">
-              <span class="preset-name">Figma</span>
-              <span class="preset-price">$15.00/mo</span>
+              <span class="preset-name">Figma</span><span class="preset-price">$15.00/mo</span>
             </div>
           </div>
 
@@ -2150,20 +2064,20 @@ ${sigName}`;
               </div>
             </div>
             <input type="hidden" id="ob-sub-category" value="Entertainment">
-            <button type="submit" class="btn btn-primary w-100" style="margin-top: 10px;">Save & Enter Dashboard</button>
+            <button type="submit" class="btn btn-primary w-100" style="margin-top:10px;">Save &amp; Enter Dashboard →</button>
           </form>
 
           <div class="onboarding-footer-nav">
             <div class="onboarding-progress">
-              <div class="progress-dot"></div>
-              <div class="progress-dot"></div>
+              <div class="progress-dot active"></div>
+              <div class="progress-dot active"></div>
+              <div class="progress-dot active"></div>
+              <div class="progress-dot active"></div>
               <div class="progress-dot active"></div>
             </div>
-            <button type="button" class="btn btn-secondary align-self-start" onclick="app.setStep(2)">Back</button>
+            <button type="button" class="btn btn-secondary align-self-start" onclick="app.setStep(4)">Back</button>
           </div>
         `;
-        
-        // Default renewal date to tomorrow
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
         setTimeout(() => {
@@ -2171,93 +2085,44 @@ ${sigName}`;
           if (el) el.value = tomorrow.toISOString().split('T')[0];
         }, 50);
       } else {
-        // Team Step 3: Invite Coworkers
+        // Team Step 5: Preset selection
         stepContainer.innerHTML = `
           <div class="onboarding-header">
-            <div class="onboarding-logo">INVITE MEMBERS</div>
-            <p class="onboarding-subtitle">Bring your billing contacts and department leads to collaborate on license allocations.</p>
+            <div class="onboarding-logo">TEAM SERVICES</div>
+            <p class="onboarding-subtitle">Select your active team subscriptions — you can always add more later.</p>
           </div>
 
-          <form id="onboarding-invite-form" onsubmit="event.preventDefault(); app.saveOnboardingInvite();" style="margin-top: 10px;">
-            <div class="form-group">
-              <label for="ob-invite-name">Teammate Name</label>
-              <input type="text" id="ob-invite-name" placeholder="e.g. Sarah Connor" required>
+          <div class="presets-grid" style="margin-bottom:24px;">
+            <div class="preset-chip" id="preset-slack" onclick="app.toggleOnboardingPreset('Slack Pro', 26.25, 'SaaS & Dev Tools')">
+              <span class="preset-name">Slack Pro</span><span class="preset-price">$26.25/mo</span>
             </div>
-            
-            <div class="form-group">
-              <label for="ob-invite-email">Teammate Email</label>
-              <input type="email" id="ob-invite-email" placeholder="e.g. sarah@office.co" required>
+            <div class="preset-chip" id="preset-zoom" onclick="app.toggleOnboardingPreset('Zoom Pro', 14.99, 'SaaS & Dev Tools')">
+              <span class="preset-name">Zoom Pro</span><span class="preset-price">$14.99/mo</span>
             </div>
+            <div class="preset-chip" id="preset-chatgpt" onclick="app.toggleOnboardingPreset('ChatGPT Plus', 20.00, 'Productivity')">
+              <span class="preset-name">ChatGPT Plus</span><span class="preset-price">$20.00/mo</span>
+            </div>
+            <div class="preset-chip" id="preset-aws" onclick="app.toggleOnboardingPreset('AWS Services', 12.50, 'Utilities')">
+              <span class="preset-name">AWS Cloud</span><span class="preset-price">$12.50/mo</span>
+            </div>
+          </div>
 
-            <div class="form-group">
-              <label for="ob-invite-role">Role</label>
-              <select id="ob-invite-role">
-                <option value="Admin">Admin</option>
-                <option value="Viewer">Viewer</option>
-                <option value="Contributor">Contributor</option>
-              </select>
-            </div>
-            
-            <button type="submit" class="btn btn-primary w-100" style="margin-top: 10px;">Send Invite & Continue</button>
-          </form>
+          <p style="font-size:11px; color:var(--text-tertiary); text-align:center; margin-bottom:16px;">Select all that apply — or skip to start with an empty stack</p>
+          <button type="button" class="btn btn-primary w-100" onclick="app.saveTeamPresets()">Finish Setup →</button>
 
           <div class="onboarding-footer-nav">
             <div class="onboarding-progress">
-              <div class="progress-dot"></div>
-              <div class="progress-dot"></div>
               <div class="progress-dot active"></div>
-              <div class="progress-dot"></div>
+              <div class="progress-dot active"></div>
+              <div class="progress-dot active"></div>
+              <div class="progress-dot active"></div>
+              <div class="progress-dot active"></div>
             </div>
-            <div style="display:flex; justify-content:space-between; width:100%;">
-              <button type="button" class="btn btn-secondary" onclick="app.setStep(2)">Back</button>
-              <button type="button" class="btn btn-secondary" onclick="app.setStep(4)">Invite Later</button>
-            </div>
+            <button type="button" class="btn btn-secondary align-self-start" onclick="app.setStep(4)">Back</button>
           </div>
         `;
+        this.selectedOnboardingPresets = [];
       }
-    }
-
-    // Step 4: Team Flow Preset selection
-    else if (this.onboardingStep === 4) {
-      stepContainer.innerHTML = `
-        <div class="onboarding-header">
-          <div class="onboarding-logo">TEAM SAAS</div>
-          <p class="onboarding-subtitle">Select team subscriptions to bootstrap your collaborative tracker stack.</p>
-        </div>
-
-        <div class="presets-grid" style="margin-bottom: 24px;">
-          <div class="preset-chip" id="preset-slack" onclick="app.toggleOnboardingPreset('Slack Pro', 26.25, 'SaaS & Dev Tools')">
-            <span class="preset-name">Slack Pro</span>
-            <span class="preset-price">$26.25/mo</span>
-          </div>
-          <div class="preset-chip" id="preset-zoom" onclick="app.toggleOnboardingPreset('Zoom Pro', 14.99, 'SaaS & Dev Tools')">
-            <span class="preset-name">Zoom Pro</span>
-            <span class="preset-price">$14.99/mo</span>
-          </div>
-          <div class="preset-chip" id="preset-chatgpt" onclick="app.toggleOnboardingPreset('ChatGPT Plus', 20.00, 'Productivity')">
-            <span class="preset-name">ChatGPT Plus</span>
-            <span class="preset-price">$20.00/mo</span>
-          </div>
-          <div class="preset-chip" id="preset-aws" onclick="app.toggleOnboardingPreset('AWS Services', 12.50, 'Utilities')">
-            <span class="preset-name">AWS Cloud</span>
-            <span class="preset-price">$12.50/mo</span>
-          </div>
-        </div>
-
-        <button type="button" class="btn btn-primary w-100" onclick="app.saveTeamPresets()">Finish Setup</button>
-
-        <div class="onboarding-footer-nav">
-          <div class="onboarding-progress">
-            <div class="progress-dot"></div>
-            <div class="progress-dot"></div>
-            <div class="progress-dot"></div>
-            <div class="progress-dot active"></div>
-          </div>
-          <button type="button" class="btn btn-secondary align-self-start" onclick="app.setStep(3)">Back</button>
-        </div>
-      `;
-      
-      this.selectedOnboardingPresets = [];
     }
 
     screen.appendChild(stepContainer);
@@ -2301,10 +2166,9 @@ ${sigName}`;
   saveTeamDetails() {
     const name = document.getElementById('ob-team-name').value;
     const category = document.getElementById('ob-team-category').value;
-    
     this.teamName = name;
     this.teamCategory = category;
-    this.setStep(3);
+    this.setStep(5); // Step 5 = team preset selection
   }
 
   saveOnboardingInvite() {
@@ -2312,16 +2176,9 @@ ${sigName}`;
     const email = document.getElementById('ob-invite-email').value;
     const role = document.getElementById('ob-invite-role').value;
 
-    this.teammates.push({
-      id: 't' + Date.now(),
-      name,
-      email,
-      role,
-      status: 'invited'
-    });
-
+    this.teammates.push({ id: 't' + Date.now(), name, email, role, status: 'invited' });
     this.showToast('✉️ Invite Sent', `Invitation sent to ${name} (${email}).`);
-    this.setStep(4);
+    this.setStep(5); // Step 5 = team presets
   }
 
   saveTeamPresets() {
@@ -2397,6 +2254,9 @@ ${sigName}`;
 
     const greeting = this.userName !== 'You' ? `Welcome, ${this.userName}!` : 'Welcome to Subscript!';
     this.showToast('🚀 Setup Complete', `${greeting} Let's manage your subscriptions.`);
+
+    // Fire notifications immediately for any urgent subs (e.g. after Gmail scan)
+    setTimeout(() => this.checkAndFireNotifications(), 2000);
   }
 
   skipOnboarding() {
@@ -2405,15 +2265,13 @@ ${sigName}`;
   }
 
   resetOnboarding() {
-    if (confirm('Are you sure you want to reset your onboarding status and all application data? This will restart the welcome flow.')) {
-      localStorage.removeItem('subscript_onboarding_completed');
-      localStorage.removeItem('subscript_subscriptions');
-      localStorage.removeItem('subscript_notifications');
-      localStorage.removeItem('subscript_dismissed_redundancies');
-      localStorage.removeItem('subscript_user_name');
-      localStorage.removeItem('subscript_user_email');
-      localStorage.removeItem('subscript_virtual_cards');
-      localStorage.removeItem('subscript_connected_emails');
+    if (confirm('Reset all data and restart onboarding?')) {
+      [
+        'subscript_onboarding_completed', 'subscript_subscriptions', 'subscript_notifications',
+        'subscript_dismissed_redundancies', 'subscript_user_name', 'subscript_user_email',
+        'subscript_virtual_cards', 'subscript_connected_emails', 'subscript_teammates',
+        'subscript_last_notif_check', 'subscript_layout_mode'
+      ].forEach(k => localStorage.removeItem(k));
       window.location.reload();
     }
   }
@@ -2423,15 +2281,120 @@ ${sigName}`;
     this.activeTimeouts = [];
   }
 
-  // Saves name from onboarding step 1 and proceeds to branch selection
+  // Step 1 → Step 2: validate name (required), save it, advance
+  proceedFromWelcome() {
+    const nameEl = document.getElementById('ob-user-name');
+    const rawName = nameEl ? nameEl.value.trim() : '';
+    if (!rawName) {
+      if (nameEl) {
+        nameEl.style.borderColor = '#ef4444';
+        nameEl.placeholder = 'Please enter your name';
+        nameEl.focus();
+        setTimeout(() => { nameEl.style.borderColor = ''; nameEl.placeholder = 'e.g. Alex'; }, 2000);
+      }
+      return;
+    }
+    this.userName = rawName;
+    localStorage.setItem('subscript_user_name', rawName);
+    this.setStep(2);
+  }
+
+  // Step 2 → Step 3: request browser notification permission
+  enableNotificationsStep() {
+    if ('Notification' in window) {
+      Notification.requestPermission().then(permission => {
+        if (permission === 'granted') {
+          this.showToast('🔔 Notifications On', 'You\'ll be alerted before any subscription charges.', null, false);
+        }
+        this.setStep(3);
+      });
+    } else {
+      this.setStep(3);
+    }
+  }
+
+  // Step 2 → Step 3: skip notification permission
+  skipNotificationsStep() {
+    this.setStep(3);
+  }
+
+  // Step 4 individual: save email, open Gmail scan modal
+  startOnboardingGmailScan() {
+    const emailInput = document.getElementById('ob-email-input');
+    const email = emailInput ? emailInput.value.trim().toLowerCase() : '';
+    if (email) {
+      this.connectedEmails = [email];
+      localStorage.setItem('subscript_user_email', email);
+      // Update owner teammate email
+      if (this.teammates[0]) this.teammates[0].email = email;
+      this.saveState();
+    }
+    this.openGmailModal();
+  }
+
+  // Kept for backward compatibility (no longer called from UI)
   saveNameAndBranch(branch) {
     const nameEl = document.getElementById('ob-user-name');
     const rawName = nameEl ? nameEl.value.trim() : '';
-    if (rawName) {
-      this.userName = rawName;
-      localStorage.setItem('subscript_user_name', rawName);
-    }
+    if (rawName) { this.userName = rawName; localStorage.setItem('subscript_user_name', rawName); }
     this.selectOnboardingBranch(branch);
+  }
+
+  // Fire real browser notifications for upcoming renewals/trials (once per day)
+  checkAndFireNotifications() {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+    const today = this.todayStr();
+    const lastCheck = localStorage.getItem('subscript_last_notif_check');
+    if (lastCheck === today) return; // Already fired today
+    localStorage.setItem('subscript_last_notif_check', today);
+
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    let delay = 0;
+    let count = 0;
+
+    this.subscriptions.forEach(sub => {
+      if (sub.isCancelled || count >= 3) return;
+
+      // Trial ending today or tomorrow
+      if (sub.isTrial && sub.trialEnd) {
+        const end = new Date(sub.trialEnd);
+        const diff = Math.ceil((end - now) / (1000 * 60 * 60 * 24));
+        if (diff >= 0 && diff <= 1) {
+          setTimeout(() => {
+            try {
+              new Notification(`⏳ ${sub.name} Trial ${diff === 0 ? 'Ends Today' : 'Ends Tomorrow'} — Subscript`, {
+                body: `Your free trial expires ${diff === 0 ? 'today' : 'tomorrow'}. $${parseFloat(sub.price).toFixed(2)}/mo starts after.`,
+                icon: '/icons/icon-192x192.png',
+                tag: `trial-${sub.id}`
+              });
+            } catch(e) {}
+          }, delay);
+          delay += 2000;
+          count++;
+        }
+      }
+
+      // Renewal within 3 days
+      if (!sub.isTrial && sub.nextRenewal) {
+        const renewal = new Date(sub.nextRenewal);
+        const diff = Math.ceil((renewal - now) / (1000 * 60 * 60 * 24));
+        if (diff >= 1 && diff <= 3) {
+          setTimeout(() => {
+            try {
+              new Notification(`💳 ${sub.name} Renews in ${diff} Day${diff !== 1 ? 's' : ''} — Subscript`, {
+                body: `$${parseFloat(sub.price).toFixed(2)}/${sub.cycle === 'monthly' ? 'mo' : 'yr'} charge coming. Open Subscript to manage.`,
+                icon: '/icons/icon-192x192.png',
+                tag: `renewal-${sub.id}`
+              });
+            } catch(e) {}
+          }, delay);
+          delay += 2000;
+          count++;
+        }
+      }
+    });
   }
 
   // Feedback modal
@@ -2457,6 +2420,7 @@ ${sigName}`;
     this.closeFeedbackModal();
     this.showToast('💬 Feedback Sent', 'Thanks! Your feedback has been recorded and copied to clipboard.', null, false);
   }
+
 
   renderSpendTrendChart() {
     const wrapper = document.getElementById('chart-svg-wrapper');
