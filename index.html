@@ -486,32 +486,57 @@
           
           <!-- Step 1: Connect -->
           <div class="gmail-step" id="gmail-step-connect">
-            <p>Subscript extracts only the headers (sender email, subject, date, price) from billing receipts to identify subscriptions automatically.</p>
+            <!-- Mode Toggle -->
+            <div class="scan-type-toggle" style="display: flex; border: 1px solid var(--border-color); border-radius: var(--radius-sm); margin-bottom: 14px; overflow: hidden; background: var(--bg-app); padding: 2px;">
+              <button type="button" class="scan-toggle-btn" id="btn-toggle-real" onclick="app.setScanMode('real')" style="flex: 1; padding: 6px; font-size: 11px; font-weight: 700; border: none; border-radius: 3px; background: var(--border-color); color: var(--text-primary); cursor: pointer; transition: all 0.2s;">🔒 Real Gmail Scan</button>
+              <button type="button" class="scan-toggle-btn" id="btn-toggle-sandbox" onclick="app.setScanMode('sandbox')" style="flex: 1; padding: 6px; font-size: 11px; font-weight: 700; border: none; border-radius: 3px; background: transparent; color: var(--text-secondary); cursor: pointer; transition: all 0.2s;">🧪 Sandbox Demo</button>
+            </div>
+
+            <p style="font-size: 12px; line-height: 1.5; color: var(--text-secondary); margin-bottom: 12px;">
+              Subscript connects directly and securely in the browser to extract subscription receipts automatically. Your emails are parsed client-side and never stored on any server.
+            </p>
+
+            <!-- Real OAuth Config Form -->
+            <div id="real-gmail-config" style="display: block; margin-bottom: 14px;">
+              <div class="form-group" style="margin-bottom: 10px;">
+                <label for="google-client-id-input" style="font-size: 9px; font-weight: 700; color: var(--text-tertiary); text-transform: uppercase; margin-bottom: 4px; display: block;">Google Web Client ID</label>
+                <input type="text" id="google-client-id-input" placeholder="123456-xxxxx.apps.googleusercontent.com" style="width: 100%; padding: 8px 12px; font-size: 11px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-app); color: var(--text-primary); outline: none; box-sizing: border-box;" oninput="app.saveGoogleClientId(this.value)">
+                <span style="font-size: 9px; color: var(--text-tertiary); display: block; margin-top: 4px; line-height: 1.4;">
+                  Register a Web OAuth client in <a href="https://console.cloud.google.com/" target="_blank" style="color: var(--text-secondary); text-decoration: underline;">Google Console</a>. Authorize JavaScript Origin: <span style="font-family: monospace; background: rgba(255,255,255,0.06); padding: 1px 3px; border-radius: 2px;" id="current-origin-label">http://localhost:5173</span>
+                </span>
+              </div>
+            </div>
+
+            <!-- Sandbox Info -->
+            <div id="sandbox-gmail-text" style="display: none; margin-bottom: 14px; font-size: 12px; color: var(--text-secondary); line-height: 1.5;">
+              🧪 Run a sandbox simulation to preview Subscript's scanning UI. No real emails will be accessed. Ideal for quick evaluations.
+            </div>
             
-            <div class="email-link-container">
-              <h4 style="font-size: 11px; font-weight: 700; margin-bottom: 8px; color: var(--text-secondary); text-transform: uppercase;">Connected Inboxes</h4>
+            <div class="email-link-container" style="margin-bottom: 14px;">
+              <h4 style="font-size: 10px; font-weight: 700; margin-bottom: 6px; color: var(--text-secondary); text-transform: uppercase;">Connected Inboxes</h4>
               <div class="connected-emails-list" id="connected-emails-list">
                 <!-- Connected emails list populated by app.js -->
               </div>
               
-              <div style="display: flex; gap: 8px; margin-top: 10px;">
+              <div style="display: flex; gap: 8px; margin-top: 8px;">
                 <input type="email" id="link-email-input" placeholder="e.g. alex.personal@gmail.com" style="flex: 1; padding: 8px 12px; font-size: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-app); color: var(--text-primary); outline: none;">
                 <button type="button" class="btn" style="padding: 8px 14px; font-size: 11px;" onclick="app.addConnectedEmail()">Link Inbox</button>
               </div>
             </div>
 
-            <div class="auth-box">
-              <div class="auth-icon">
-                <!-- Lock -->
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <div class="auth-box" style="margin-bottom: 14px; padding: 10px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: var(--radius-sm); display: flex; gap: 10px; align-items: center;">
+              <div class="auth-icon" style="color: var(--text-secondary); flex-shrink: 0; width: 20px; height: 20px;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 100%; height: 100%;">
                   <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
                   <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                 </svg>
               </div>
-              <h4>Secure OAuth Link</h4>
-              <p class="text-muted">Subscript never stores email body content or passwords.</p>
+              <div>
+                <h4 style="font-size: 11px; font-weight: 700; margin: 0 0 2px 0;">Secure OAuth Link</h4>
+                <p class="text-muted" style="font-size: 9px; margin: 0;">Subscript never stores email body content or passwords.</p>
+              </div>
             </div>
-            <button class="btn btn-primary w-100" id="btn-scan-inboxes" onclick="app.startGmailScan()">Connect & Scan Inboxes</button>
+            <button class="btn btn-primary w-100" id="btn-scan-inboxes" onclick="app.startGmailScan()">🔒 Authenticate &amp; Scan Gmail</button>
           </div>
 
           <!-- Step 2: Scanning Animation -->

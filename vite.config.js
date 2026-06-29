@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: 'inline',
       includeAssets: ['icons/icon-192x192.png', 'icons/icon-512x512.png'],
       manifest: {
         name: 'Subscript',

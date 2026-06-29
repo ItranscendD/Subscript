@@ -29,6 +29,8 @@ class SubscriptApp {
   constructor() {
     this.currentTab = 'list';
     this.currentScope = 'personal'; // 'personal' or 'team'
+    this.scanMode = 'real'; // 'real' or 'sandbox'
+    this.googleClientId = localStorage.getItem('subscript_google_client_id') || '';
 
     // Load persisted user name (set during onboarding)
     this.userName = localStorage.getItem('subscript_user_name') || 'You';
@@ -752,6 +754,20 @@ class SubscriptApp {
     document.getElementById('gmail-step-connect').classList.remove('d-none');
     document.getElementById('gmail-step-scanning').classList.add('d-none');
     document.getElementById('gmail-step-results').classList.add('d-none');
+    
+    // Initialize correct scan mode view
+    this.setScanMode(this.scanMode);
+    
+    const clientIdInput = document.getElementById('google-client-id-input');
+    if (clientIdInput) {
+      clientIdInput.value = this.googleClientId;
+    }
+    
+    const originLabel = document.getElementById('current-origin-label');
+    if (originLabel) {
+      originLabel.innerText = window.location.origin;
+    }
+
     document.getElementById('gmail-scanner-modal').classList.add('active');
   }
 
@@ -829,7 +845,72 @@ class SubscriptApp {
     this.clearActiveTimeouts();
   }
 
+  setScanMode(mode) {
+    this.scanMode = mode; // 'real' or 'sandbox'
+    const btnReal = document.getElementById('btn-toggle-real');
+    const btnSandbox = document.getElementById('btn-toggle-sandbox');
+    const realForm = document.getElementById('real-gmail-config');
+    const sandboxText = document.getElementById('sandbox-gmail-text');
+    const scanBtn = document.getElementById('btn-scan-inboxes');
+    
+    if (!btnReal || !btnSandbox) return;
+    
+    if (mode === 'real') {
+      btnReal.style.background = 'var(--border-color)';
+      btnReal.style.color = 'var(--text-primary)';
+      btnSandbox.style.background = 'transparent';
+      btnSandbox.style.color = 'var(--text-secondary)';
+      if (realForm) realForm.style.display = 'block';
+      if (sandboxText) sandboxText.style.display = 'none';
+      if (scanBtn) scanBtn.innerHTML = '🔒 Authenticate & Scan Gmail';
+    } else {
+      btnReal.style.background = 'transparent';
+      btnReal.style.color = 'var(--text-secondary)';
+      btnSandbox.style.background = 'var(--border-color)';
+      btnSandbox.style.color = 'var(--text-primary)';
+      if (realForm) realForm.style.display = 'none';
+      if (sandboxText) sandboxText.style.display = 'block';
+      if (scanBtn) scanBtn.innerHTML = '🧪 Connect & Scan (Sandbox)';
+    }
+  }
+
+  saveGoogleClientId(val) {
+    this.googleClientId = val.trim();
+    localStorage.setItem('subscript_google_client_id', this.googleClientId);
+  }
+
+  loadGsiScript() {
+    return new Promise((resolve, reject) => {
+      if (window.google && window.google.accounts) {
+        resolve();
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      script.onload = () => resolve();
+      script.onerror = (e) => reject(e);
+      document.head.appendChild(script);
+    });
+  }
+
   startGmailScan() {
+    if (this.scanMode === 'real') {
+      if (!this.googleClientId) {
+        alert('Google Web Client ID is required for active scanning. Please enter it in the configuration input field.');
+        // Return to first step
+        document.getElementById('gmail-step-connect').classList.remove('d-none');
+        document.getElementById('gmail-step-scanning').classList.add('d-none');
+        return;
+      }
+      this.startRealGmailScan();
+    } else {
+      this.startSandboxGmailScan();
+    }
+  }
+
+  startSandboxGmailScan() {
     document.getElementById('gmail-step-connect').classList.add('d-none');
     document.getElementById('gmail-step-scanning').classList.remove('d-none');
     
@@ -837,8 +918,8 @@ class SubscriptApp {
     const statusText = document.getElementById('scanning-status-text');
     const logger = document.getElementById('detected-log');
     
-    fill.style.width = '0%';
-    logger.innerHTML = '';
+    if (fill) fill.style.width = '0%';
+    if (logger) logger.innerHTML = '';
 
     // Generate dynamic scan sequence logs based on the connected emails list
     const logs = [];
@@ -886,17 +967,23 @@ class SubscriptApp {
           item.innerText = `> ${log.text}`;
         }
         
-        logger.appendChild(item);
-        logger.scrollTop = logger.scrollHeight;
+        if (logger) {
+          logger.appendChild(item);
+          logger.scrollTop = logger.scrollHeight;
+        }
 
         // Update progress bar percentage
         const pct = (log.delay / totalDuration) * 100;
-        fill.style.width = `${pct}%`;
+        if (fill) fill.style.width = `${pct}%`;
 
         // Update status text
-        if (log.delay < currentDelay * 0.3) statusText.innerText = 'Connecting to Google APIs...';
-        else if (log.delay < currentDelay * 0.8) statusText.innerText = 'Analyzing invoice receipts...';
-        else statusText.innerText = 'Compiling list...';
+        if (log.delay < currentDelay * 0.3) {
+          if (statusText) statusText.innerText = 'Connecting to Google APIs...';
+        } else if (log.delay < currentDelay * 0.8) {
+          if (statusText) statusText.innerText = 'Analyzing invoice receipts...';
+        } else {
+          if (statusText) statusText.innerText = 'Compiling list...';
+        }
 
       }, log.delay);
     });
@@ -907,6 +994,213 @@ class SubscriptApp {
       document.getElementById('gmail-step-scanning').classList.add('d-none');
       document.getElementById('gmail-step-results').classList.remove('d-none');
     }, totalDuration + 400);
+  }
+
+  async startRealGmailScan() {
+    document.getElementById('gmail-step-connect').classList.add('d-none');
+    document.getElementById('gmail-step-scanning').classList.remove('d-none');
+    
+    const fill = document.getElementById('scan-progress-fill');
+    const statusText = document.getElementById('scanning-status-text');
+    const logger = document.getElementById('detected-log');
+    
+    if (fill) fill.style.width = '0%';
+    if (logger) logger.innerHTML = '';
+
+    const logToScreen = (text, type = 'info') => {
+      if (!logger) return;
+      const item = document.createElement('div');
+      item.className = `detected-log-item ${type === 'success' ? 'success' : ''}`;
+      item.innerText = type === 'success' ? `🔍 ${text}` : `> ${text}`;
+      logger.appendChild(item);
+      logger.scrollTop = logger.scrollHeight;
+    };
+
+    try {
+      logToScreen('Loading Google Accounts Client Library...');
+      await this.loadGsiScript();
+      
+      logToScreen('Requesting Google OAuth 2.0 Access Token...');
+      if (fill) fill.style.width = '20%';
+
+      // Request token using Google Identity Services
+      const tokenResponse = await new Promise((resolve, reject) => {
+        try {
+          const client = google.accounts.oauth2.initTokenClient({
+            client_id: this.googleClientId,
+            scope: 'https://www.googleapis.com/auth/gmail.readonly',
+            callback: (response) => {
+              if (response.error) {
+                reject(new Error(response.error_description || response.error));
+              } else {
+                resolve(response);
+              }
+            }
+          });
+          client.requestAccessToken();
+        } catch (err) {
+          reject(err);
+        }
+      });
+
+      const token = tokenResponse.access_token;
+      logToScreen('Authentication successful. Searching Gmail inbox...');
+      if (fill) fill.style.width = '40%';
+      if (statusText) statusText.innerText = 'Searching headers...';
+
+      // Query Gmail for matching receipts
+      const query = 'subject:(receipt OR invoice OR billing OR subscription OR renew OR "your payment" OR "order confirmation")';
+      const messagesUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=15&q=${encodeURIComponent(query)}`;
+      const response = await fetch(messagesUrl, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) throw new Error('Gmail API query failed');
+      const data = await response.json();
+      const messages = data.messages || [];
+
+      if (messages.length === 0) {
+        logToScreen('No billing matching headers found in your inbox.');
+        if (fill) fill.style.width = '100%';
+        this.gmailScannable = [];
+        this.scheduleTimeout(() => {
+          this.renderDetectedGmailList();
+          document.getElementById('gmail-step-scanning').classList.add('d-none');
+          document.getElementById('gmail-step-results').classList.remove('d-none');
+        }, 1500);
+        return;
+      }
+
+      logToScreen(`Found ${messages.length} receipt/invoice candidates. Parsing headers...`);
+      if (fill) fill.style.width = '60%';
+      if (statusText) statusText.innerText = 'Analyzing invoice receipts...';
+
+      // Load details of matches
+      const detected = [];
+      const userEmail = this.connectedEmails[0] || 'your-gmail';
+
+      for (let i = 0; i < messages.length; i++) {
+        const msgId = messages[i].id;
+        const detailUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msgId}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date`;
+        
+        try {
+          const detailRes = await fetch(detailUrl, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (!detailRes.ok) continue;
+          const msg = await detailRes.json();
+          
+          const subjectHeader = msg.payload.headers.find(h => h.name === 'Subject');
+          const fromHeader = msg.payload.headers.find(h => h.name === 'From');
+          
+          const subject = subjectHeader ? subjectHeader.value : '';
+          const from = fromHeader ? fromHeader.value : '';
+          const snippet = msg.snippet || '';
+
+          // Parse heuristic name & price
+          const parsed = this.parseReceiptDetails(subject, from, snippet);
+          if (parsed) {
+            logToScreen(`DETECTED: ${parsed.name} ($${parsed.price.toFixed(2)}/mo)`, 'success');
+            detected.push({
+              name: parsed.name,
+              price: parsed.price,
+              cycle: parsed.cycle,
+              category: parsed.category,
+              detectedEmail: userEmail
+            });
+          }
+        } catch (e) {
+          // Ignore individual fetch errors
+        }
+        
+        if (fill) fill.style.width = `${60 + (i / messages.length) * 30}%`;
+      }
+
+      logToScreen('Parsing complete! Compiling findings list...');
+      if (fill) fill.style.width = '100%';
+      if (statusText) statusText.innerText = 'Compiling list...';
+
+      this.gmailScannable = detected;
+
+      this.scheduleTimeout(() => {
+        this.renderDetectedGmailList();
+        document.getElementById('gmail-step-scanning').classList.add('d-none');
+        document.getElementById('gmail-step-results').classList.remove('d-none');
+      }, 1200);
+
+    } catch (err) {
+      logToScreen(`Error: ${err.message || 'Gmail access failed'}`);
+      logToScreen('Verify your client ID is valid and your origins are authorized in Google Console.');
+      
+      this.scheduleTimeout(() => {
+        // Return to connect screen
+        document.getElementById('gmail-step-scanning').classList.add('d-none');
+        document.getElementById('gmail-step-connect').classList.remove('d-none');
+      }, 5000);
+    }
+  }
+
+  parseReceiptDetails(subject, from, snippet) {
+    const combinedText = `${subject} ${from} ${snippet}`.toLowerCase();
+    
+    // Check known subscription services
+    let name = '';
+    let category = 'Entertainment';
+    
+    if (combinedText.includes('netflix')) { name = 'Netflix'; category = 'Entertainment'; }
+    else if (combinedText.includes('spotify')) { name = 'Spotify'; category = 'Music'; }
+    else if (combinedText.includes('figma')) { name = 'Figma Pro'; category = 'SaaS & Dev Tools'; }
+    else if (combinedText.includes('notion')) { name = 'Notion'; category = 'Productivity'; }
+    else if (combinedText.includes('zoom')) { name = 'Zoom'; category = 'SaaS & Dev Tools'; }
+    else if (combinedText.includes('slack')) { name = 'Slack'; category = 'SaaS & Dev Tools'; }
+    else if (combinedText.includes('chatgpt') || combinedText.includes('openai')) { name = 'ChatGPT Plus'; category = 'Productivity'; }
+    else if (combinedText.includes('aws') || combinedText.includes('amazon web services')) { name = 'AWS Cloud'; category = 'Utilities'; }
+    else if (combinedText.includes('adobe') || combinedText.includes('creative cloud')) { name = 'Adobe CC'; category = 'Productivity'; }
+    else if (combinedText.includes('google pay') || combinedText.includes('google one')) { name = 'Google One'; category = 'Utilities'; }
+    else if (combinedText.includes('apple') || combinedText.includes('icloud') || combinedText.includes('apple music')) {
+      if (combinedText.includes('music')) { name = 'Apple Music'; category = 'Music'; }
+      else { name = 'iCloud Storage'; category = 'Utilities'; }
+    } else if (combinedText.includes('github')) { name = 'GitHub Copilot'; category = 'SaaS & Dev Tools'; }
+    else if (combinedText.includes('microsoft') || combinedText.includes('office 365')) { name = 'Microsoft 365'; category = 'Productivity'; }
+    
+    if (!name) {
+      // Heuristic fallback: extract domain name from 'from' header
+      const match = from.match(/@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+      if (match && match[1]) {
+        const domain = match[1];
+        // Clean common domains
+        if (!['gmail.com', 'yahoo.com', 'outlook.com', 'google.com'].includes(domain)) {
+          name = domain.split('.')[0].toUpperCase();
+          category = 'Other';
+        }
+      }
+    }
+
+    if (!name) return null;
+
+    // Price extraction heuristic
+    // Look for patterns like: $15.49, $ 15.99, USD 10.00, etc.
+    let price = 9.99; // fallback default price
+    const priceRegex = /(?:\$|usd|£|€)\s*(\d+(?:\.\d{2})?)/i;
+    const priceMatch = combinedText.match(priceRegex);
+    if (priceMatch && priceMatch[1]) {
+      price = parseFloat(priceMatch[1]);
+    } else {
+      // Try searching for numeric decimals
+      const decimalRegex = /\b(\d+\.\d{2})\b/;
+      const decimalMatch = combinedText.match(decimalRegex);
+      if (decimalMatch && decimalMatch[1]) {
+        price = parseFloat(decimalMatch[1]);
+      }
+    }
+
+    // Interval heuristic
+    let cycle = 'monthly';
+    if (combinedText.includes('annual') || combinedText.includes('year') || combinedText.includes('/yr')) {
+      cycle = 'yearly';
+    }
+
+    return { name, price, category, cycle };
   }
 
   renderDetectedGmailList() {
