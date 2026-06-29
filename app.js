@@ -3,6 +3,17 @@
  */
 
 class SubscriptApp {
+  // Escape HTML characters to prevent XSS
+  escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
   // Returns today's date as YYYY-MM-DD string
   todayStr() {
     return new Date().toISOString().split('T')[0];
@@ -188,7 +199,7 @@ class SubscriptApp {
         <span class="alert-icon">⚠️</span>
         <div class="alert-content">
           <div class="alert-title">Redundant Services Detected</div>
-          <div class="alert-desc">You are paying for both <strong>${dup.sub1.name}</strong> and <strong>${dup.sub2.name}</strong> (${dup.sub1.category}). Do you need both?</div>
+          <div class="alert-desc">You are paying for both <strong>${this.escapeHtml(dup.sub1.name)}</strong> and <strong>${this.escapeHtml(dup.sub2.name)}</strong> (${this.escapeHtml(dup.sub1.category)}). Do you need both?</div>
           <button class="alert-action-btn" onclick="app.openRedundancyReview(${dup.sub1.id}, ${dup.sub2.id})">Review Analytics</button>
         </div>
         <button class="alert-close" onclick="this.parentElement.remove()">✕</button>
@@ -207,7 +218,7 @@ class SubscriptApp {
         card.innerHTML = `
           <span class="alert-icon">📈</span>
           <div class="alert-content">
-            <div class="alert-title">Price Update: ${sub.name}</div>
+            <div class="alert-title">Price Update: ${this.escapeHtml(sub.name)}</div>
             <div class="alert-desc">Rate updated from $${sub.priceHike.originalPrice.toFixed(2)} to $${sub.priceHike.newPrice.toFixed(2)} (${diffText}).</div>
           </div>
           <button class="alert-close" onclick="this.parentElement.remove()">✕</button>
@@ -233,7 +244,7 @@ class SubscriptApp {
             <span class="alert-icon">⏳</span>
             <div class="alert-content">
               <div class="alert-title">Free Trial Countdown</div>
-              <div class="alert-desc"><strong>${sub.name}</strong> trial ends in 24 hours. A recurring cost of $${sub.price.toFixed(2)}/mo starts tomorrow.</div>
+              <div class="alert-desc"><strong>${this.escapeHtml(sub.name)}</strong> trial ends in 24 hours. A recurring cost of $${sub.price.toFixed(2)}/mo starts tomorrow.</div>
               <button class="alert-action-btn" onclick="app.openCancelWizard(${sub.id})">Cancel Sub</button>
             </div>
             <button class="alert-close" onclick="this.parentElement.remove()">✕</button>
@@ -245,7 +256,7 @@ class SubscriptApp {
           card.innerHTML = `
             <span class="alert-icon">🚨</span>
             <div class="alert-content">
-              <div class="alert-title">Trial Expired: ${sub.name}</div>
+              <div class="alert-title">Trial Expired: ${this.escapeHtml(sub.name)}</div>
               <div class="alert-desc">Your free trial ended on ${this.formatDate(sub.trialEnd)}. You are now being charged $${sub.price.toFixed(2)}/mo.</div>
               <button class="alert-action-btn" onclick="app.openCancelWizard(${sub.id})">Cancel Sub</button>
             </div>
@@ -297,7 +308,7 @@ class SubscriptApp {
       
       const badgeHTML = sub.isTrial 
         ? `<span class="sub-badge trial">Trial</span>` 
-        : (this.currentScope === 'team' ? `<span class="sub-badge team-owner">${sub.owner.split(' ')[0]}</span>` : '');
+        : (this.currentScope === 'team' ? `<span class="sub-badge team-owner">${this.escapeHtml(sub.owner.split(' ')[0])}</span>` : '');
 
       const cancelBtnHTML = sub.isCancelled
         ? `<div class="cancelled-actions-row">
@@ -311,11 +322,11 @@ class SubscriptApp {
 
       item.innerHTML = `
         <div class="sub-item-left">
-          <div class="sub-logo">${sub.name.charAt(0)}</div>
+          <div class="sub-logo">${this.escapeHtml(sub.name.charAt(0))}</div>
           <div class="sub-info">
-            <h3>${sub.name}</h3>
+            <h3>${this.escapeHtml(sub.name)}</h3>
             <div class="sub-meta">
-              <span>${sub.category}</span> • 
+              <span>${this.escapeHtml(sub.category)}</span> • 
               <span>${sub.isCancelled ? 'Ended' : 'Renews ' + this.formatDate(sub.nextRenewal)}</span>
               ${badgeHTML}
             </div>
@@ -450,7 +461,7 @@ class SubscriptApp {
       item.className = 'outflow-item';
       item.innerHTML = `
         <span class="outflow-date">${this.formatDate(sub.nextRenewal)}</span>
-        <span class="outflow-name">${sub.name}</span>
+        <span class="outflow-name">${this.escapeHtml(sub.name)}</span>
         <span class="outflow-price">$${parseFloat(sub.price).toFixed(2)}</span>
       `;
       container.appendChild(item);
@@ -484,7 +495,7 @@ class SubscriptApp {
       item.className = 'outflow-item';
       item.innerHTML = `
         <span class="outflow-date">Due Today</span>
-        <span class="outflow-name">${sub.name}</span>
+        <span class="outflow-name">${this.escapeHtml(sub.name)}</span>
         <span class="outflow-price">$${parseFloat(sub.price).toFixed(2)}</span>
       `;
       container.appendChild(item);
@@ -511,7 +522,7 @@ class SubscriptApp {
           item.innerHTML = `
             <div class="redundancy-warning-header">Overlap Found</div>
             <div class="redundancy-subs">
-              <span><strong>${dup.sub1.name}</strong> vs <strong>${dup.sub2.name}</strong></span>
+              <span><strong>${this.escapeHtml(dup.sub1.name)}</strong> vs <strong>${this.escapeHtml(dup.sub2.name)}</strong></span>
               <button class="btn-cancel-action" onclick="app.openRedundancyReview(${dup.sub1.id}, ${dup.sub2.id})">Compare & Resolve</button>
             </div>
           `;
@@ -548,7 +559,7 @@ class SubscriptApp {
           row.className = 'cat-row';
           row.innerHTML = `
             <div class="cat-labels">
-              <span class="cat-name">${name}</span>
+              <span class="cat-name">${this.escapeHtml(name)}</span>
               <span class="cat-amt">$${amount.toFixed(2)}/mo (${percentage.toFixed(0)}%)</span>
             </div>
             <div class="cat-bar-bg">
@@ -621,7 +632,7 @@ class SubscriptApp {
   handleAddSubscription(event) {
     event.preventDefault();
     
-    const name = document.getElementById('sub-name').value;
+    const name = document.getElementById('sub-name').value.trim().replace(/\s+/g, ' ');
     const price = parseFloat(document.getElementById('sub-price').value);
     const cycle = document.getElementById('sub-cycle').value;
     const category = document.getElementById('sub-category').value;
@@ -753,8 +764,10 @@ class SubscriptApp {
       const item = document.createElement('div');
       item.className = 'connected-email-item';
       
+      const escapedEmail = this.escapeHtml(email);
+      const jsEscapedEmail = email.replace(/'/g, "\\'");
       const removeBtn = this.connectedEmails.length > 1
-        ? `<button type="button" class="btn-remove-email" onclick="app.removeConnectedEmail('${email}')">Remove</button>`
+        ? `<button type="button" class="btn-remove-email" onclick="app.removeConnectedEmail('${jsEscapedEmail}')">Remove</button>`
         : '';
 
       item.innerHTML = `
@@ -763,7 +776,7 @@ class SubscriptApp {
             <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
             <polyline points="22,6 12,13 2,6"></polyline>
           </svg>
-          <span class="connected-email-address">${email}</span>
+          <span class="connected-email-address">${escapedEmail}</span>
         </div>
         ${removeBtn}
       `;
@@ -781,8 +794,8 @@ class SubscriptApp {
     if (!input) return;
     const email = input.value.trim().toLowerCase();
     
-    // Simple email regex validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    // Strict email regex validation to block special chars (like quotes/angle brackets)
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     if (!emailRegex.test(email)) {
       alert('Please enter a valid email address.');
       return;
@@ -797,7 +810,7 @@ class SubscriptApp {
     this.saveState();
     this.renderConnectedEmails();
     input.value = '';
-    this.showToast('✉️ Inbox Linked', `${email} has been successfully added to your scan queue.`);
+    this.showToast('✉️ Inbox Linked', `${this.escapeHtml(email)} has been successfully added to your scan queue.`);
   }
 
   removeConnectedEmail(email) {
@@ -808,7 +821,7 @@ class SubscriptApp {
     this.connectedEmails = this.connectedEmails.filter(e => e !== email);
     this.saveState();
     this.renderConnectedEmails();
-    this.showToast('🗑️ Inbox Removed', `${email} was disconnected from Subscript.`);
+    this.showToast('🗑️ Inbox Removed', `${this.escapeHtml(email)} was disconnected from Subscript.`);
   }
 
   closeGmailModal() {
@@ -917,9 +930,9 @@ class SubscriptApp {
               <input type="checkbox" checked onchange="app.toggleDetectedSubSelection(${idx}, this)">
               <span class="checkmark"></span>
               <div>
-                <div class="detected-item-name" id="name-display-${idx}">${sub.name}</div>
-                <div class="detected-item-price" id="meta-display-${idx}">$${sub.price.toFixed(2)}/mo • Category: ${sub.category}</div>
-                <div style="font-size: 9px; color: var(--text-tertiary); margin-top: 2px;">Source: ${subEmail}</div>
+                <div class="detected-item-name" id="name-display-${idx}">${this.escapeHtml(sub.name)}</div>
+                <div class="detected-item-price" id="meta-display-${idx}">$${sub.price.toFixed(2)}/mo • Category: ${this.escapeHtml(sub.category)}</div>
+                <div style="font-size: 9px; color: var(--text-tertiary); margin-top: 2px;">Source: ${this.escapeHtml(subEmail)}</div>
               </div>
             </label>
           </div>
@@ -934,11 +947,11 @@ class SubscriptApp {
           <div class="detected-edit-row">
             <div class="detected-edit-group">
               <label>Name</label>
-              <input type="text" value="${sub.name}" oninput="app.updateScanItem(${idx}, 'name', this.value)">
+              <input type="text" value="${this.escapeHtml(sub.name)}" oninput="app.updateScanItem(${idx}, 'name', this.value)">
             </div>
             <div class="detected-edit-group">
               <label>Price ($)</label>
-              <input type="number" step="0.01" value="${sub.price}" oninput="app.updateScanItem(${idx}, 'price', this.value)">
+              <input type="number" step="0.01" value="${this.escapeHtml(sub.price)}" oninput="app.updateScanItem(${idx}, 'price', this.value)">
             </div>
           </div>
           <div class="detected-edit-row">
@@ -1283,9 +1296,16 @@ ${sigName}`;
       return;
     }
 
-    const name = document.getElementById('invite-name').value;
-    const email = document.getElementById('invite-email').value;
+    const name = document.getElementById('invite-name').value.trim();
+    const email = document.getElementById('invite-email').value.trim().toLowerCase();
     const role = document.getElementById('invite-role').value;
+
+    // Strict email regex validation
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(email)) {
+      alert('Please enter a valid email address.');
+      return;
+    }
 
     const newTeammate = {
       id: 't' + (Date.now()),
@@ -1301,7 +1321,7 @@ ${sigName}`;
     // Reset Form
     event.target.reset();
 
-    this.showToast('✉️ Invite Sent', `Invitation email sent to ${name} (${email}).`, newTeammate.id);
+    this.showToast('✉️ Invite Sent', `Invitation email sent to ${this.escapeHtml(name)} (${this.escapeHtml(email)}).`, newTeammate.id);
   }
 
   updateTeammatesUI() {
@@ -1313,20 +1333,20 @@ ${sigName}`;
     countSpan.innerText = this.teammates.length;
 
     this.teammates.forEach(tm => {
-      const initials = tm.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+      const initials = (tm.name || '').trim().split(/\s+/).map(n => n[0]).join('').toUpperCase().substring(0, 2) || '?';
       const row = document.createElement('div');
       row.className = 'teammate-row';
       
       const roleBadge = tm.status === 'invited' 
         ? `<span class="teammate-role invited">Invited</span>` 
-        : `<span class="teammate-role ${tm.role === 'Owner' ? 'owner' : ''}">${tm.role}</span>`;
+        : `<span class="teammate-role ${tm.role === 'Owner' ? 'owner' : ''}">${this.escapeHtml(tm.role)}</span>`;
 
       row.innerHTML = `
         <div class="teammate-info">
-          <div class="teammate-avatar">${initials}</div>
+          <div class="teammate-avatar">${this.escapeHtml(initials)}</div>
           <div class="teammate-details">
-            <span class="teammate-name">${tm.name}</span>
-            <span class="teammate-email">${tm.email}</span>
+            <span class="teammate-name">${this.escapeHtml(tm.name)}</span>
+            <span class="teammate-email">${this.escapeHtml(tm.email)}</span>
           </div>
         </div>
         ${roleBadge}
@@ -1366,7 +1386,7 @@ ${sigName}`;
       sub.isCancelled = false;
       this.saveState();
       this.renderAll();
-      this.showToast('✅ Reactivated', `${sub.name} subscription reactivated successfully.`, null, false);
+      this.showToast('✅ Reactivated', `${this.escapeHtml(sub.name)} subscription reactivated successfully.`, null, false);
     }
   }
 
@@ -1383,13 +1403,13 @@ ${sigName}`;
       const priceText = sub.isTrial && !sub.isCancelled ? 'Free' : `$${parseFloat(sub.price).toFixed(2)}`;
       const cycleText = sub.cycle === 'monthly' ? '/mo' : '/yr';
       element.innerHTML = `
-        <div class="compare-icon-wrapper">${sub.name.charAt(0)}</div>
-        <h4>${sub.name}</h4>
+        <div class="compare-icon-wrapper">${this.escapeHtml(sub.name.charAt(0))}</div>
+        <h4>${this.escapeHtml(sub.name)}</h4>
         <div class="compare-price">${priceText}${cycleText}</div>
         <div class="compare-meta">
-          <div>Category: ${sub.category}</div>
+          <div>Category: ${this.escapeHtml(sub.category)}</div>
           <div>Renewal: ${this.formatDate(sub.nextRenewal)}</div>
-          <div>Owner: ${sub.owner.split(' ')[0]}</div>
+          <div>Owner: ${this.escapeHtml(sub.owner.split(' ')[0])}</div>
         </div>
       `;
     };
@@ -1460,11 +1480,11 @@ ${sigName}`;
       
       // Render first 3 teammates as bubbles
       this.teammates.slice(0, 3).forEach(tm => {
-        const initials = tm.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+        const initials = (tm.name || '').trim().split(/\s+/).map(n => n[0]).join('').toUpperCase().substring(0, 2) || '?';
         const bubble = document.createElement('div');
         bubble.className = `avatar-bubble ${tm.status === 'invited' ? 'invited' : ''}`;
         bubble.innerText = initials;
-        bubble.title = `${tm.name} (${tm.role})`;
+        bubble.title = `${this.escapeHtml(tm.name)} (${this.escapeHtml(tm.role)})`;
         avatarsList.appendChild(bubble);
       });
       
@@ -1505,8 +1525,8 @@ ${sigName}`;
         item.innerHTML = `
           <span class="notification-item-time">${notif.time}</span>
           <div class="notification-item-content">
-            <div class="notification-item-title">${notif.title}</div>
-            <div class="notification-item-desc">${notif.desc}</div>
+            <div class="notification-item-title">${this.escapeHtml(notif.title)}</div>
+            <div class="notification-item-desc">${this.escapeHtml(notif.desc)}</div>
             ${notif.subId ? `<span class="notification-interactive-badge">Action Required</span>` : ''}
           </div>
         `;
@@ -1557,8 +1577,8 @@ ${sigName}`;
       
       detailsCard.innerHTML = `
         <div class="notif-sub-info">
-          <h4>${sub.name}</h4>
-          <span>${sub.category} • Renews ${renewalDateFormatted} ${trialBadge}</span>
+          <h4>${this.escapeHtml(sub.name)}</h4>
+          <span>${this.escapeHtml(sub.category)} • Renews ${renewalDateFormatted} ${trialBadge}</span>
         </div>
         <div class="notif-sub-price">${priceDisplay}${cycleText}</div>
       `;
@@ -2164,7 +2184,7 @@ ${sigName}`;
   }
 
   saveTeamDetails() {
-    const name = document.getElementById('ob-team-name').value;
+    const name = document.getElementById('ob-team-name').value.trim().replace(/\s+/g, ' ');
     const category = document.getElementById('ob-team-category').value;
     this.teamName = name;
     this.teamCategory = category;
@@ -2172,12 +2192,18 @@ ${sigName}`;
   }
 
   saveOnboardingInvite() {
-    const name = document.getElementById('ob-invite-name').value;
-    const email = document.getElementById('ob-invite-email').value;
+    const name = document.getElementById('ob-invite-name').value.trim();
+    const email = document.getElementById('ob-invite-email').value.trim().toLowerCase();
     const role = document.getElementById('ob-invite-role').value;
 
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(email)) {
+      alert('Please enter a valid email address.');
+      return;
+    }
+
     this.teammates.push({ id: 't' + Date.now(), name, email, role, status: 'invited' });
-    this.showToast('✉️ Invite Sent', `Invitation sent to ${name} (${email}).`);
+    this.showToast('✉️ Invite Sent', `Invitation sent to ${this.escapeHtml(name)} (${this.escapeHtml(email)}).`);
     this.setStep(5); // Step 5 = team presets
   }
 
@@ -2206,7 +2232,7 @@ ${sigName}`;
 
   saveOnboardingSub(event) {
     event.preventDefault();
-    const name = document.getElementById('ob-sub-name').value;
+    const name = document.getElementById('ob-sub-name').value.trim().replace(/\s+/g, ' ');
     const price = parseFloat(document.getElementById('ob-sub-price').value);
     const cycle = document.getElementById('ob-sub-cycle').value;
     const renewal = document.getElementById('ob-sub-renewal').value;
@@ -2323,6 +2349,11 @@ ${sigName}`;
     const emailInput = document.getElementById('ob-email-input');
     const email = emailInput ? emailInput.value.trim().toLowerCase() : '';
     if (email) {
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+      if (!emailRegex.test(email)) {
+        alert('Please enter a valid email address.');
+        return;
+      }
       this.connectedEmails = [email];
       localStorage.setItem('subscript_user_email', email);
       // Update owner teammate email
@@ -2726,12 +2757,12 @@ ${sigName}`;
 
         cardEl.innerHTML = `
           <div class="card-header-row">
-            <span class="card-name">${card.name}</span>
+            <span class="card-name">${this.escapeHtml(card.name)}</span>
             <span class="card-network">VISA</span>
           </div>
           <div class="card-middle">
-            <div class="card-digits">${card.digits}</div>
-            <div class="card-expiry">EXP ${card.expiry}</div>
+            <div class="card-digits">${this.escapeHtml(card.digits)}</div>
+            <div class="card-expiry">EXP ${this.escapeHtml(card.expiry)}</div>
           </div>
           <div class="card-bottom-row">
             <div class="card-limit-info">
@@ -2770,14 +2801,14 @@ ${sigName}`;
 
           const cardOptions = this.virtualCards
             .filter(c => c.scope === this.currentScope)
-            .map(c => `<option value="${c.id}" ${c.id === sub.cardId ? 'selected' : ''}>${c.name}</option>`)
+            .map(c => `<option value="${c.id}" ${c.id === sub.cardId ? 'selected' : ''}>${this.escapeHtml(c.name)}</option>`)
             .join('');
 
           item.innerHTML = `
             <div style="display:flex; align-items:center; gap: 8px;">
-              <div class="sub-logo" style="width: 24px; height: 24px; font-size: 10px; line-height: 24px;">${sub.name.charAt(0)}</div>
+              <div class="sub-logo" style="width: 24px; height: 24px; font-size: 10px; line-height: 24px;">${this.escapeHtml(sub.name.charAt(0))}</div>
               <div>
-                <div class="wallet-linked-name" style="font-size: 12px; font-weight:700; color:var(--text-primary);">${sub.name}</div>
+                <div class="wallet-linked-name" style="font-size: 12px; font-weight:700; color:var(--text-primary);">${this.escapeHtml(sub.name)}</div>
                 <div style="font-size: 9px; color: var(--text-tertiary);">Next renewal: ${this.formatDate(sub.nextRenewal)}</div>
               </div>
             </div>
@@ -2796,8 +2827,13 @@ ${sigName}`;
 
   handleCreateVirtualCard(event) {
     event.preventDefault();
-    const name = document.getElementById('card-new-name').value;
+    const name = document.getElementById('card-new-name').value.trim();
     const limit = parseFloat(document.getElementById('card-new-limit').value);
+
+    if (!name) {
+      alert('Card name is required.');
+      return;
+    }
 
     const newCard = {
       id: 'c' + Date.now(),
