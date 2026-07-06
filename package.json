@@ -2,13 +2,19 @@
   "name": "subscript",
   "version": "1.0.0",
   "description": "Centralized Subscription Tracker",
+  "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently \"vite\" \"node server.js\"",
+    "start": "node server.js",
     "build": "vite build",
     "preview": "vite preview"
   },
   "devDependencies": {
+    "concurrently": "^10.0.3",
     "vite": "^6.3.5",
     "vite-plugin-pwa": "^1.0.0"
+  },
+  "dependencies": {
+    "express": "^5.2.1"
   }
 }

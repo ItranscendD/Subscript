@@ -30,93 +30,40 @@ class SubscriptApp {
     this.currentTab = 'list';
     this.currentScope = 'personal'; // 'personal' or 'team'
     this.scanMode = 'real'; // 'real' or 'sandbox'
-    this.googleClientId = localStorage.getItem('subscript_google_client_id') || '';
-
-    // Load persisted user name (set during onboarding)
-    this.userName = localStorage.getItem('subscript_user_name') || 'You';
+    
+    // Initialize properties with default/fallback values
+    this.googleClientId = '';
+    this.userName = 'You';
+    this.userEmail = '';
+    this.lastNotifCheck = '';
+    this.dismissedRedundancies = [];
+    this.subscriptions = [];
+    this.virtualCards = [];
+    this.teammates = [];
+    this.notifications = [];
+    this.connectedEmails = [];
+    this.layoutMode = 'desktop';
+    this.onboardingCompleted = false;
 
     // Calendar state — default to current month
     const now = new Date();
     this.calendarYear = now.getFullYear();
     this.calendarMonth = now.getMonth(); // 0-indexed
-    
-    // Core state
-    this.dismissedRedundancies = JSON.parse(localStorage.getItem('subscript_dismissed_redundancies')) || [];
-
-    // New users start empty — subscriptions are added during or after onboarding
-    this.subscriptions = JSON.parse(localStorage.getItem('subscript_subscriptions')) || [];
-
-    // Load or initialize Virtual Cards
-    const defaultCards = [
-      { id: 'c1', name: 'Personal Card', digits: '•••• •••• •••• 8899', expiry: '09/29', limit: 50.00, scope: 'personal' },
-      { id: 'c2', name: 'Team SaaS Card', digits: '•••• •••• •••• 4321', expiry: '12/28', limit: 150.00, scope: 'team' }
-    ];
-    this.virtualCards = JSON.parse(localStorage.getItem('subscript_virtual_cards')) || defaultCards;
-    this.selectedCardId = this.virtualCards[0].id;
-
-    // Standardize saved subscriptions with default card bindings & seat ratios
-    this.subscriptions.forEach(sub => {
-      if (!sub.cardId) {
-        sub.cardId = sub.isTeam ? 'c2' : 'c1';
-      }
-      if (sub.isTeam) {
-        if (sub.seatsPurchased === undefined) {
-          if (sub.name === 'Slack Pro') {
-            sub.seatsPurchased = 3; sub.seatsAssigned = 2; sub.pricePerSeat = 8.75;
-          } else if (sub.name === 'ChatGPT Plus') {
-            sub.seatsPurchased = 2; sub.seatsAssigned = 1; sub.pricePerSeat = 10.00;
-          } else {
-            sub.seatsPurchased = 1; sub.seatsAssigned = 1; sub.pricePerSeat = parseFloat(sub.price);
-          }
-        }
-      }
-    });
-
-    // Owner-only teammate list; teammates can be added from Settings/Team
-    const ownerName = this.userName !== 'You' ? `${this.userName} (You)` : 'You';
-    const ownerEmail = localStorage.getItem('subscript_user_email') || '';
-    this.teammates = JSON.parse(localStorage.getItem('subscript_teammates')) || [
-      { id: 't1', name: ownerName, email: ownerEmail, role: 'Owner', status: 'active' }
-    ];
-
-    // No pre-seeded notifications — generated dynamically from real subscription data
-    this.notifications = JSON.parse(localStorage.getItem('subscript_notifications')) || [];
-
-    this.gmailScannable = [
-      { name: 'Adobe Creative Cloud', price: 54.99, cycle: 'monthly', category: 'Productivity' },
-      { name: 'AWS Cloud Services', price: 12.50, cycle: 'monthly', category: 'Utilities' },
-      { name: 'Google One 100GB', price: 1.99, cycle: 'monthly', category: 'Utilities' },
-      { name: 'Zoom Pro', price: 14.99, cycle: 'monthly', category: 'SaaS & Dev Tools' }
-    ];
-
-    // Load or initialize Connected Emails list (populated during onboarding)
-    this.connectedEmails = JSON.parse(localStorage.getItem('subscript_connected_emails')) || [];
-
-    // Load Widescreen Layout state
-    this.layoutMode = localStorage.getItem('subscript_layout_mode') || 'desktop';
 
     this.selectedDetectedSubs = [];
     this.activeCancelSub = null;
     this.cancelTimer = null;
     this.activeTimeouts = [];
     
-    // Check if onboarding is completed
-    this.onboardingCompleted = localStorage.getItem('subscript_onboarding_completed') === 'true';
     this.onboardingBranch = null;
     this.onboardingStep = 1;
     this.selectedOnboardingPresets = [];
     
     // UI Helpers
     this.initTime();
-    this.applyLayoutMode();
-    this.renderAll();
 
-    if (!this.onboardingCompleted) {
-      this.startOnboarding();
-    } else {
-      // Check and fire real browser notifications once per day
-      setTimeout(() => this.checkAndFireNotifications(), 1500);
-    }
+    // Fetch and load state from Express server
+    this.loadStateFromServer();
   }
 
   // Update Status Bar Time
@@ -153,13 +100,139 @@ class SubscriptApp {
     this.updateCardDropdown();
   }
 
-  saveState() {
-    localStorage.setItem('subscript_subscriptions', JSON.stringify(this.subscriptions));
-    localStorage.setItem('subscript_notifications', JSON.stringify(this.notifications));
-    localStorage.setItem('subscript_dismissed_redundancies', JSON.stringify(this.dismissedRedundancies));
-    localStorage.setItem('subscript_virtual_cards', JSON.stringify(this.virtualCards));
-    localStorage.setItem('subscript_connected_emails', JSON.stringify(this.connectedEmails));
-    localStorage.setItem('subscript_teammates', JSON.stringify(this.teammates));
+  async saveState() {
+    // Keep local storage synchronized as a fallback
+    try {
+      localStorage.setItem('subscript_subscriptions', JSON.stringify(this.subscriptions));
+      localStorage.setItem('subscript_notifications', JSON.stringify(this.notifications));
+      localStorage.setItem('subscript_dismissed_redundancies', JSON.stringify(this.dismissedRedundancies));
+      localStorage.setItem('subscript_virtual_cards', JSON.stringify(this.virtualCards));
+      localStorage.setItem('subscript_connected_emails', JSON.stringify(this.connectedEmails));
+      localStorage.setItem('subscript_teammates', JSON.stringify(this.teammates));
+      localStorage.setItem('subscript_google_client_id', this.googleClientId);
+      localStorage.setItem('subscript_onboarding_completed', this.onboardingCompleted ? 'true' : 'false');
+      localStorage.setItem('subscript_user_name', this.userName);
+      localStorage.setItem('subscript_user_email', this.userEmail || '');
+      localStorage.setItem('subscript_last_notif_check', this.lastNotifCheck || '');
+      localStorage.setItem('subscript_layout_mode', this.layoutMode);
+    } catch (e) {
+      console.warn('LocalStorage save failed:', e);
+    }
+
+    const state = {
+      subscriptions: this.subscriptions,
+      notifications: this.notifications,
+      dismissedRedundancies: this.dismissedRedundancies,
+      virtualCards: this.virtualCards,
+      connectedEmails: this.connectedEmails,
+      teammates: this.teammates,
+      googleClientId: this.googleClientId,
+      onboardingCompleted: this.onboardingCompleted,
+      userName: this.userName,
+      userEmail: this.userEmail || '',
+      lastNotifCheck: this.lastNotifCheck || '',
+      layoutMode: this.layoutMode
+    };
+
+    try {
+      await fetch('/api/state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(state)
+      });
+    } catch (err) {
+      console.error('Failed to save state to backend:', err);
+    }
+  }
+
+  async loadStateFromServer() {
+    try {
+      const res = await fetch('/api/state');
+      if (res.ok) {
+        const state = await res.json();
+        this.googleClientId = state.googleClientId || '';
+        this.userName = state.userName || 'You';
+        this.dismissedRedundancies = state.dismissedRedundancies || [];
+        this.subscriptions = state.subscriptions || [];
+        this.virtualCards = state.virtualCards || [];
+        this.teammates = state.teammates || [];
+        this.notifications = state.notifications || [];
+        this.connectedEmails = state.connectedEmails || [];
+        this.layoutMode = state.layoutMode || 'desktop';
+        this.onboardingCompleted = state.onboardingCompleted === true;
+        this.userEmail = state.userEmail || '';
+        this.lastNotifCheck = state.lastNotifCheck || '';
+      } else {
+        throw new Error('Server returned non-OK status');
+      }
+    } catch (err) {
+      console.warn('Failed to load state from server, falling back to localStorage:', err);
+      // fallback
+      this.googleClientId = localStorage.getItem('subscript_google_client_id') || '';
+      this.userName = localStorage.getItem('subscript_user_name') || 'You';
+      this.dismissedRedundancies = JSON.parse(localStorage.getItem('subscript_dismissed_redundancies')) || [];
+      this.subscriptions = JSON.parse(localStorage.getItem('subscript_subscriptions')) || [];
+      this.virtualCards = JSON.parse(localStorage.getItem('subscript_virtual_cards')) || [];
+      this.teammates = JSON.parse(localStorage.getItem('subscript_teammates')) || [];
+      this.notifications = JSON.parse(localStorage.getItem('subscript_notifications')) || [];
+      this.connectedEmails = JSON.parse(localStorage.getItem('subscript_connected_emails')) || [];
+      this.layoutMode = localStorage.getItem('subscript_layout_mode') || 'desktop';
+      this.onboardingCompleted = localStorage.getItem('subscript_onboarding_completed') === 'true';
+      this.userEmail = localStorage.getItem('subscript_user_email') || '';
+      this.lastNotifCheck = localStorage.getItem('subscript_last_notif_check') || '';
+    }
+
+    // Default virtual cards if empty
+    const defaultCards = [
+      { id: 'c1', name: 'Personal Card', digits: '•••• •••• •••• 8899', expiry: '09/29', limit: 50.00, scope: 'personal' },
+      { id: 'c2', name: 'Team SaaS Card', digits: '•••• •••• •••• 4321', expiry: '12/28', limit: 150.00, scope: 'team' }
+    ];
+    if (!this.virtualCards || this.virtualCards.length === 0) {
+      this.virtualCards = defaultCards;
+    }
+    this.selectedCardId = this.virtualCards[0].id;
+
+    // Standardize saved subscriptions with default card bindings & seat ratios
+    this.subscriptions.forEach(sub => {
+      if (!sub.cardId) {
+        sub.cardId = sub.isTeam ? 'c2' : 'c1';
+      }
+      if (sub.isTeam) {
+        if (sub.seatsPurchased === undefined) {
+          if (sub.name === 'Slack Pro') {
+            sub.seatsPurchased = 3; sub.seatsAssigned = 2; sub.pricePerSeat = 8.75;
+          } else if (sub.name === 'ChatGPT Plus') {
+            sub.seatsPurchased = 2; sub.seatsAssigned = 1; sub.pricePerSeat = 10.00;
+          } else {
+            sub.seatsPurchased = 1; sub.seatsAssigned = 1; sub.pricePerSeat = parseFloat(sub.price);
+          }
+        }
+      }
+    });
+
+    // Default teammate list
+    const ownerName = this.userName !== 'You' ? `${this.userName} (You)` : 'You';
+    if (!this.teammates || this.teammates.length === 0) {
+      this.teammates = [
+        { id: 't1', name: ownerName, email: this.userEmail || '', role: 'Owner', status: 'active' }
+      ];
+    }
+
+    this.gmailScannable = [
+      { name: 'Adobe Creative Cloud', price: 54.99, cycle: 'monthly', category: 'Productivity' },
+      { name: 'AWS Cloud Services', price: 12.50, cycle: 'monthly', category: 'Utilities' },
+      { name: 'Google One 100GB', price: 1.99, cycle: 'monthly', category: 'Utilities' },
+      { name: 'Zoom Pro', price: 14.99, cycle: 'monthly', category: 'SaaS & Dev Tools' }
+    ];
+
+    this.applyLayoutMode();
+    this.renderAll();
+
+    if (!this.onboardingCompleted) {
+      this.startOnboarding();
+    } else {
+      setTimeout(() => this.checkAndFireNotifications(), 1500);
+    }
   }
 
   // Financial Metrics: Monthly Burn & Annualized Projection
@@ -876,7 +949,7 @@ class SubscriptApp {
 
   saveGoogleClientId(val) {
     this.googleClientId = val.trim();
-    localStorage.setItem('subscript_google_client_id', this.googleClientId);
+    this.saveState();
   }
 
   loadGsiScript() {
@@ -2584,7 +2657,7 @@ ${sigName}`;
     this.completeOnboarding();
   }
 
-  resetOnboarding() {
+  async resetOnboarding() {
     if (confirm('Reset all data and restart onboarding?')) {
       [
         'subscript_onboarding_completed', 'subscript_subscriptions', 'subscript_notifications',
@@ -2592,6 +2665,11 @@ ${sigName}`;
         'subscript_virtual_cards', 'subscript_connected_emails', 'subscript_teammates',
         'subscript_last_notif_check', 'subscript_layout_mode'
       ].forEach(k => localStorage.removeItem(k));
+      try {
+        await fetch('/api/reset', { method: 'POST' });
+      } catch (err) {
+        console.error('Failed to reset backend state:', err);
+      }
       window.location.reload();
     }
   }
@@ -2615,7 +2693,7 @@ ${sigName}`;
       return;
     }
     this.userName = rawName;
-    localStorage.setItem('subscript_user_name', rawName);
+    this.saveState();
     this.setStep(2);
   }
 
@@ -2649,7 +2727,7 @@ ${sigName}`;
         return;
       }
       this.connectedEmails = [email];
-      localStorage.setItem('subscript_user_email', email);
+      this.userEmail = email;
       // Update owner teammate email
       if (this.teammates[0]) this.teammates[0].email = email;
       this.saveState();
@@ -2661,7 +2739,7 @@ ${sigName}`;
   saveNameAndBranch(branch) {
     const nameEl = document.getElementById('ob-user-name');
     const rawName = nameEl ? nameEl.value.trim() : '';
-    if (rawName) { this.userName = rawName; localStorage.setItem('subscript_user_name', rawName); }
+    if (rawName) { this.userName = rawName; this.saveState(); }
     this.selectOnboardingBranch(branch);
   }
 
@@ -2670,9 +2748,10 @@ ${sigName}`;
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
 
     const today = this.todayStr();
-    const lastCheck = localStorage.getItem('subscript_last_notif_check');
+    const lastCheck = this.lastNotifCheck;
     if (lastCheck === today) return; // Already fired today
-    localStorage.setItem('subscript_last_notif_check', today);
+    this.lastNotifCheck = today;
+    this.saveState();
 
     const now = new Date();
     now.setHours(0, 0, 0, 0);
@@ -3213,7 +3292,7 @@ ${sigName}`;
 
   toggleLayoutMode() {
     this.layoutMode = this.layoutMode === 'desktop' ? 'mobile' : 'desktop';
-    localStorage.setItem('subscript_layout_mode', this.layoutMode);
+    this.saveState();
     this.applyLayoutMode();
     this.showToast(
       this.layoutMode === 'desktop' ? '🖥️ Desktop View' : '📱 Mobile Preview',
