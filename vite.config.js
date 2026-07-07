@@ -4,6 +4,8 @@ import { VitePWA } from 'vite-plugin-pwa';
 export default defineConfig({
   base: '/',
   server: {
+    port: 5180,
+    strictPort: true,
     proxy: {
       '/api': {
         target: 'http://localhost:3000',
