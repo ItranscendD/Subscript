@@ -37,7 +37,7 @@ const getDefaultState = () => ({
   teammates: [
     { id: 't1', name: 'You', email: '', role: 'Owner', status: 'active' }
   ],
-  googleClientId: '',
+  googleClientId: '752275487283-fia0bplqtlv18vfd5ueui05bri1v2bmc.apps.googleusercontent.com',
   onboardingCompleted: false,
   userName: 'You',
   userEmail: '',

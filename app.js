@@ -32,7 +32,7 @@ class SubscriptApp {
     this.scanMode = 'real'; // 'real' or 'sandbox'
     
     // Initialize properties with default/fallback values
-    this.googleClientId = '';
+    this.googleClientId = '752275487283-fia0bplqtlv18vfd5ueui05bri1v2bmc.apps.googleusercontent.com';
     this.userName = 'You';
     this.userEmail = '';
     this.lastNotifCheck = '';
@@ -150,7 +150,7 @@ class SubscriptApp {
       const res = await fetch('/api/state');
       if (res.ok) {
         const state = await res.json();
-        this.googleClientId = state.googleClientId || '';
+        this.googleClientId = state.googleClientId || '752275487283-fia0bplqtlv18vfd5ueui05bri1v2bmc.apps.googleusercontent.com';
         this.userName = state.userName || 'You';
         this.dismissedRedundancies = state.dismissedRedundancies || [];
         this.subscriptions = state.subscriptions || [];
@@ -168,7 +168,7 @@ class SubscriptApp {
     } catch (err) {
       console.warn('Failed to load state from server, falling back to localStorage:', err);
       // fallback
-      this.googleClientId = localStorage.getItem('subscript_google_client_id') || '';
+      this.googleClientId = localStorage.getItem('subscript_google_client_id') || '752275487283-fia0bplqtlv18vfd5ueui05bri1v2bmc.apps.googleusercontent.com';
       this.userName = localStorage.getItem('subscript_user_name') || 'You';
       this.dismissedRedundancies = JSON.parse(localStorage.getItem('subscript_dismissed_redundancies')) || [];
       this.subscriptions = JSON.parse(localStorage.getItem('subscript_subscriptions')) || [];
