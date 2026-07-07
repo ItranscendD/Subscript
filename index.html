@@ -304,12 +304,6 @@
                   <option value="Other">Other</option>
                 </select>
               </div>
-              <div class="form-group">
-                <label for="sub-card-binding">Link Payment Card</label>
-                <select id="sub-card-binding">
-                  <!-- Injected dynamically by JS -->
-                </select>
-              </div>
               <div class="form-group check-group">
                 <label class="checkbox-container">
                   <input type="checkbox" id="sub-is-trial" onchange="app.toggleTrialDate(this)">
@@ -322,52 +316,14 @@
                 <label for="sub-trial-end">Trial End Date (Charge starts next day)</label>
                 <input type="date" id="sub-trial-end">
               </div>
-              
+
               <div class="form-group" id="renewal-date-group">
                 <label for="sub-renewal-date">Next Renewal Date</label>
                 <input type="date" id="sub-renewal-date" required>
               </div>
-
+              
               <button type="submit" class="btn btn-primary w-100">Add Subscription</button>
             </form>
-          </div>
-
-          <!-- 5. WALLET TAB PANEL -->
-          <div class="tab-panel" id="panel-wallet">
-            <div class="section-header">
-              <h2 class="section-title">Virtual Cards</h2>
-              <div class="calendar-subtitle">Manage payment limits & security</div>
-            </div>
-            
-            <div class="wallet-container">
-              <div class="cards-carousel" id="virtual-cards-list">
-                <!-- Injected dynamically by JS -->
-              </div>
-              
-              <div class="wallet-sub-link-card">
-                <h4>Linked Card Transactions</h4>
-                <div class="wallet-linked-subs-list" id="linked-subs-list">
-                  <!-- Injected dynamically by JS -->
-                </div>
-              </div>
-              
-              <div class="card" style="padding: 16px;">
-                <h3 style="font-size: 13px; font-weight: 700; margin-bottom: 12px;">Create Virtual Card</h3>
-                <form id="create-card-form" onsubmit="app.handleCreateVirtualCard(event)" style="gap: 12px; margin-bottom: 0;">
-                  <div class="form-group">
-                    <label for="card-new-name">Card Name (Alias)</label>
-                    <input type="text" id="card-new-name" placeholder="e.g. Adobe Card, Entertainment Card" required>
-                  </div>
-                  <div class="form-row">
-                    <div class="form-group">
-                      <label for="card-new-limit">Monthly Limit ($)</label>
-                      <input type="number" id="card-new-limit" step="1" placeholder="100" required>
-                    </div>
-                  </div>
-                  <button type="submit" class="btn btn-primary w-100 m-t-10">Generate Card</button>
-                </form>
-              </div>
-            </div>
           </div>
 
         </div> <!-- View Panels End -->
@@ -403,13 +359,6 @@
             <line x1="6" y1="20" x2="6" y2="14"/>
           </svg>
           <span>Insights</span>
-        </button>
-        <button class="tab-btn" data-tab="wallet" onclick="app.switchTab('wallet')">
-          <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
-            <line x1="1" y1="10" x2="23" y2="10"/>
-          </svg>
-          <span>Wallet</span>
         </button>
         <button class="tab-btn" data-tab="add" onclick="app.switchTab('add')">
           <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -486,11 +435,6 @@
           
           <!-- Step 1: Connect -->
           <div class="gmail-step" id="gmail-step-connect">
-            <!-- Mode Toggle -->
-            <div class="scan-type-toggle" style="display: flex; border: 1px solid var(--border-color); border-radius: var(--radius-sm); margin-bottom: 14px; overflow: hidden; background: var(--bg-app); padding: 2px;">
-              <button type="button" class="scan-toggle-btn" id="btn-toggle-real" onclick="app.setScanMode('real')" style="flex: 1; padding: 6px; font-size: 11px; font-weight: 700; border: none; border-radius: 3px; background: var(--border-color); color: var(--text-primary); cursor: pointer; transition: all 0.2s;">🔒 Real Gmail Scan</button>
-              <button type="button" class="scan-toggle-btn" id="btn-toggle-sandbox" onclick="app.setScanMode('sandbox')" style="flex: 1; padding: 6px; font-size: 11px; font-weight: 700; border: none; border-radius: 3px; background: transparent; color: var(--text-secondary); cursor: pointer; transition: all 0.2s;">🧪 Sandbox Demo</button>
-            </div>
 
             <p style="font-size: 12px; line-height: 1.5; color: var(--text-secondary); margin-bottom: 12px;">
               Subscript connects directly and securely in the browser to extract subscription receipts automatically. Your emails are parsed client-side and never stored on any server.
@@ -505,11 +449,6 @@
                   Register a Web OAuth client in <a href="https://console.cloud.google.com/" target="_blank" style="color: var(--text-secondary); text-decoration: underline;">Google Console</a>. Authorize JavaScript Origin: <span style="font-family: monospace; background: rgba(255,255,255,0.06); padding: 1px 3px; border-radius: 2px;" id="current-origin-label">http://localhost:5173</span>
                 </span>
               </div>
-            </div>
-
-            <!-- Sandbox Info -->
-            <div id="sandbox-gmail-text" style="display: none; margin-bottom: 14px; font-size: 12px; color: var(--text-secondary); line-height: 1.5;">
-              🧪 Run a sandbox simulation to preview Subscript's scanning UI. No real emails will be accessed. Ideal for quick evaluations.
             </div>
             
             <div class="email-link-container" style="margin-bottom: 14px;">
@@ -702,6 +641,78 @@
           <button class="btn btn-secondary w-100 m-t-15" onclick="app.clearNotifications()">Clear All</button>
         </div>
       </div> <!-- Notifications Modal End -->
+
+      <!-- MODAL: SUBSCRIPTION DETAILS -->
+      <div class="modal-overlay" id="sub-details-modal">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>Subscription Details</h3>
+            <button class="btn-close" onclick="app.closeSubDetailsModal()">✕</button>
+          </div>
+          
+          <div class="detail-logo-wrapper">
+            <div class="detail-sub-icon" id="detail-sub-logo">S</div>
+            <div>
+              <h2 class="detail-sub-name-title" id="detail-sub-name">Subscription Name</h2>
+              <span class="detail-sub-category-label" id="detail-sub-category">Category</span>
+            </div>
+          </div>
+
+          <div class="detail-grid">
+            <div class="detail-box">
+              <div class="detail-label">Status</div>
+              <div class="detail-value"><span id="detail-sub-status" class="status-badge">Active</span></div>
+            </div>
+            
+            <div class="detail-box">
+              <div class="detail-label">Cost & Cycle</div>
+              <div class="detail-value" id="detail-sub-price">$0.00</div>
+            </div>
+
+            <div class="detail-box">
+              <div class="detail-label" id="detail-sub-renewal-label">Next Renewal</div>
+              <div class="detail-value" id="detail-sub-renewal-val">Date</div>
+            </div>
+
+            <div class="detail-box">
+              <div class="detail-label">Linked Virtual Card</div>
+              <div class="detail-value" id="detail-sub-card">Card Info</div>
+            </div>
+          </div>
+
+          <!-- Section for team-specific details -->
+          <div id="detail-sub-team-section" style="display: none; margin-bottom: 24px;">
+            <h4 style="font-size: 11px; font-weight: 700; color: var(--text-tertiary); text-transform: uppercase; margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">Team stack analytics</h4>
+            <div class="detail-grid" style="grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 0;">
+              <div class="detail-box">
+                <div class="detail-label">Owner / Purchaser</div>
+                <div class="detail-value" id="detail-sub-owner">Owner</div>
+              </div>
+              <div class="detail-box">
+                <div class="detail-label">Seats Purchased</div>
+                <div class="detail-value" id="detail-seats-purchased">0</div>
+              </div>
+              <div class="detail-box">
+                <div class="detail-label">Seats Assigned</div>
+                <div class="detail-value" id="detail-seats-assigned">0</div>
+              </div>
+              <div class="detail-box">
+                <div class="detail-label">Unused Seats</div>
+                <div class="detail-value" id="detail-seats-unused">0</div>
+              </div>
+              <div class="detail-box" style="grid-column: span 2;">
+                <div class="detail-label">Monthly Waste (Unassigned Seats)</div>
+                <div class="detail-value" id="detail-seats-waste" style="color: var(--text-primary);">$0.00</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div id="detail-modal-actions" style="display: flex; flex-direction: column; gap: 10px;">
+            <!-- Buttons injected by JS dynamically -->
+          </div>
+        </div>
+      </div> <!-- Subscription Details Modal End -->
 
       <!-- POPUP NOTIFICATION (TOAST) -->
       <div class="toast-notification" id="toast-notification">

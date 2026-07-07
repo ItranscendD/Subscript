@@ -218,12 +218,7 @@ class SubscriptApp {
       ];
     }
 
-    this.gmailScannable = [
-      { name: 'Adobe Creative Cloud', price: 54.99, cycle: 'monthly', category: 'Productivity' },
-      { name: 'AWS Cloud Services', price: 12.50, cycle: 'monthly', category: 'Utilities' },
-      { name: 'Google One 100GB', price: 1.99, cycle: 'monthly', category: 'Utilities' },
-      { name: 'Zoom Pro', price: 14.99, cycle: 'monthly', category: 'SaaS & Dev Tools' }
-    ];
+    this.gmailScannable = [];
 
     this.applyLayoutMode();
     this.renderAll();
@@ -380,6 +375,7 @@ class SubscriptApp {
     filtered.forEach(sub => {
       const item = document.createElement('div');
       item.className = `sub-item ${sub.isCancelled ? 'cancelled-style' : ''}`;
+      item.onclick = () => this.openSubDetailsModal(sub.id);
       
       const badgeHTML = sub.isTrial 
         ? `<span class="sub-badge trial">Trial</span>` 
@@ -388,10 +384,10 @@ class SubscriptApp {
       const cancelBtnHTML = sub.isCancelled
         ? `<div class="cancelled-actions-row">
              <span class="status-cancelled-badge">Cancelled</span>
-             <button type="button" class="btn-reactivate-sub" onclick="app.reactivateSubscription(${sub.id})" title="Reactivate subscription">Reactivate</button>
-             <button type="button" class="btn-delete-sub" onclick="app.deleteSubscription(${sub.id})" title="Delete permanently">✕</button>
+             <button type="button" class="btn-reactivate-sub" onclick="event.stopPropagation(); app.reactivateSubscription(${sub.id})" title="Reactivate subscription">Reactivate</button>
+             <button type="button" class="btn-delete-sub" onclick="event.stopPropagation(); app.deleteSubscription(${sub.id})" title="Delete permanently">✕</button>
            </div>`
-        : `<button class="btn-cancel-action" onclick="app.openCancelWizard(${sub.id})">Cancel</button>`;
+        : `<button class="btn-cancel-action" onclick="event.stopPropagation(); app.openCancelWizard(${sub.id})">Cancel</button>`;
 
       const priceDisplay = sub.isTrial && !sub.isCancelled ? 'Free' : `$${parseFloat(sub.price).toFixed(2)}`;
 
@@ -828,9 +824,6 @@ class SubscriptApp {
     document.getElementById('gmail-step-scanning').classList.add('d-none');
     document.getElementById('gmail-step-results').classList.add('d-none');
     
-    // Initialize correct scan mode view
-    this.setScanMode(this.scanMode);
-    
     const clientIdInput = document.getElementById('google-client-id-input');
     if (clientIdInput) {
       clientIdInput.value = this.googleClientId;
@@ -969,104 +962,14 @@ class SubscriptApp {
   }
 
   startGmailScan() {
-    if (this.scanMode === 'real') {
-      if (!this.googleClientId) {
-        alert('Google Web Client ID is required for active scanning. Please enter it in the configuration input field.');
-        // Return to first step
-        document.getElementById('gmail-step-connect').classList.remove('d-none');
-        document.getElementById('gmail-step-scanning').classList.add('d-none');
-        return;
-      }
-      this.startRealGmailScan();
-    } else {
-      this.startSandboxGmailScan();
-    }
-  }
-
-  startSandboxGmailScan() {
-    document.getElementById('gmail-step-connect').classList.add('d-none');
-    document.getElementById('gmail-step-scanning').classList.remove('d-none');
-    
-    const fill = document.getElementById('scan-progress-fill');
-    const statusText = document.getElementById('scanning-status-text');
-    const logger = document.getElementById('detected-log');
-    
-    if (fill) fill.style.width = '0%';
-    if (logger) logger.innerHTML = '';
-
-    // Generate dynamic scan sequence logs based on the connected emails list
-    const logs = [];
-    let currentDelay = 0;
-
-    // Scan each connected email inbox
-    this.connectedEmails.forEach((email, emailIdx) => {
-      logs.push({ text: `Connecting to secure mail servers for ${email}...`, delay: currentDelay + 400 });
-      logs.push({ text: `Accessing secure OAuth handshake token for ${email}...`, delay: currentDelay + 800 });
-      logs.push({ text: `Searching headers in ${email} for "invoice", "receipt", "subscription"...`, delay: currentDelay + 1400 });
-      
-      // Distribute the preset scannable subscriptions among connected emails
-      if (emailIdx === 0) {
-        logs.push({ text: `Found Adobe Receipt (Adobe Creative Cloud) in ${email} - billing@adobe.com`, delay: currentDelay + 2000, detected: 0, detectedEmail: email });
-        logs.push({ text: `Found Amazon Web Services invoice (AWS Cloud Services) in ${email} - billing@amazon.com`, delay: currentDelay + 2600, detected: 1, detectedEmail: email });
-      } else if (emailIdx === 1) {
-        logs.push({ text: `Found Google Pay receipt (Google One 100GB) in ${email} - payments-noreply@google.com`, delay: currentDelay + 2000, detected: 2, detectedEmail: email });
-      } else if (emailIdx === 2) {
-        logs.push({ text: `Found Zoom Invoice (Zoom Pro) in ${email} - billing@zoom.us`, delay: currentDelay + 2000, detected: 3, detectedEmail: email });
-      } else {
-        // Fallback for extra custom emails
-        logs.push({ text: `Inbox ${email} successfully scanned. 0 new matches.`, delay: currentDelay + 2000 });
-      }
-
-      currentDelay += 2800;
-    });
-
-    logs.push({ text: 'Parsing metadata, tax statements, and billing cycles...', delay: currentDelay + 400 });
-    logs.push({ text: 'Analyzing recurrence interval tokens...', delay: currentDelay + 1000 });
-    logs.push({ text: `Scan complete! 4 matches detected across ${this.connectedEmails.length} inbox${this.connectedEmails.length > 1 ? 'es' : ''}.`, delay: currentDelay + 1600 });
-
-    const totalDuration = currentDelay + 1600;
-
-    logs.forEach(log => {
-      this.scheduleTimeout(() => {
-        const item = document.createElement('div');
-        item.className = 'detected-log-item';
-        
-        if (log.detected !== undefined) {
-          item.className = 'detected-log-item success';
-          item.innerText = `🔍 DETECTED in ${log.detectedEmail}: ${this.gmailScannable[log.detected].name} ($${this.gmailScannable[log.detected].price.toFixed(2)}/mo)`;
-          // Temporarily attach dynamic source email
-          this.gmailScannable[log.detected].detectedEmail = log.detectedEmail;
-        } else {
-          item.innerText = `> ${log.text}`;
-        }
-        
-        if (logger) {
-          logger.appendChild(item);
-          logger.scrollTop = logger.scrollHeight;
-        }
-
-        // Update progress bar percentage
-        const pct = (log.delay / totalDuration) * 100;
-        if (fill) fill.style.width = `${pct}%`;
-
-        // Update status text
-        if (log.delay < currentDelay * 0.3) {
-          if (statusText) statusText.innerText = 'Connecting to Google APIs...';
-        } else if (log.delay < currentDelay * 0.8) {
-          if (statusText) statusText.innerText = 'Analyzing invoice receipts...';
-        } else {
-          if (statusText) statusText.innerText = 'Compiling list...';
-        }
-
-      }, log.delay);
-    });
-
-    // Complete scan -> show results
-    this.scheduleTimeout(() => {
-      this.renderDetectedGmailList();
+    if (!this.googleClientId) {
+      alert('Google Web Client ID is required for active scanning. Please enter it in the configuration input field.');
+      // Return to first step
+      document.getElementById('gmail-step-connect').classList.remove('d-none');
       document.getElementById('gmail-step-scanning').classList.add('d-none');
-      document.getElementById('gmail-step-results').classList.remove('d-none');
-    }, totalDuration + 400);
+      return;
+    }
+    this.startRealGmailScan();
   }
 
   async startRealGmailScan() {
@@ -1213,6 +1116,49 @@ class SubscriptApp {
     }
   }
 
+  cleanBrandName(name) {
+    if (!name) return '';
+    // Remove typical email noise / billing suffixes
+    let cleaned = name.replace(/^(no-reply|noreply|billing|support|info|sales|hello|team|contact)\s*@/i, '');
+    cleaned = cleaned.replace(/(team|billing|support|receipts|invoices|noreply|no-reply|notifications|payments)\b/ig, '');
+    cleaned = cleaned.replace(/[^\w\s-]/g, ' '); // remove special characters
+    cleaned = cleaned.replace(/\s+/g, ' ').trim();
+    // Capitalize words
+    return cleaned.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+  }
+
+  getBrandFromDomain(domain) {
+    const parts = domain.split('.');
+    if (parts.length >= 2) {
+      const isSecondLevelTld = ['com', 'co', 'org', 'net', 'edu', 'gov'].includes(parts[parts.length - 2]);
+      if (isSecondLevelTld && parts.length >= 3) {
+        return parts[parts.length - 3];
+      }
+      return parts[parts.length - 2];
+    }
+    return domain;
+  }
+
+  inferCategoryFromName(name) {
+    const lower = name.toLowerCase();
+    if (lower.includes('netflix') || lower.includes('hulu') || lower.includes('disney') || lower.includes('hbo') || lower.includes('youtube') || lower.includes('prime video')) {
+      return 'Entertainment';
+    }
+    if (lower.includes('spotify') || lower.includes('apple music') || lower.includes('pandora') || lower.includes('tidal') || lower.includes('soundcloud')) {
+      return 'Music';
+    }
+    if (lower.includes('figma') || lower.includes('github') || lower.includes('gitlab') || lower.includes('vercel') || lower.includes('netlify') || lower.includes('heroku') || lower.includes('aws') || lower.includes('digitalocean') || lower.includes('google cloud') || lower.includes('datadog')) {
+      return 'SaaS & Dev Tools';
+    }
+    if (lower.includes('notion') || lower.includes('slack') || lower.includes('zoom') || lower.includes('trello') || lower.includes('asana') || lower.includes('monday') || lower.includes('jira') || lower.includes('microsoft 365') || lower.includes('office') || lower.includes('chatgpt') || lower.includes('openai') || lower.includes('adobe') || lower.includes('canva')) {
+      return 'Productivity';
+    }
+    if (lower.includes('google one') || lower.includes('icloud') || lower.includes('dropbox') || lower.includes('box') || lower.includes('onedrive') || lower.includes('1password') || lower.includes('lastpass')) {
+      return 'Utilities';
+    }
+    return 'Other';
+  }
+
   parseReceiptDetails(subject, from, snippet) {
     const combinedText = `${subject} ${from} ${snippet}`.toLowerCase();
     
@@ -1237,29 +1183,44 @@ class SubscriptApp {
     else if (combinedText.includes('microsoft') || combinedText.includes('office 365')) { name = 'Microsoft 365'; category = 'Productivity'; }
     
     if (!name) {
-      // Heuristic fallback: extract domain name from 'from' header
-      const match = from.match(/@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
-      if (match && match[1]) {
-        const domain = match[1];
-        // Clean common domains
-        if (!['gmail.com', 'yahoo.com', 'outlook.com', 'google.com'].includes(domain)) {
-          name = domain.split('.')[0].toUpperCase();
-          category = 'Other';
+      // 1. Try to extract display name from 'from' header
+      let extractedName = '';
+      const displayMatch = from.match(/^(?:"?([^"]*)"?\s)?<[^>]+>/);
+      if (displayMatch && displayMatch[1]) {
+        const rawDisplay = displayMatch[1].trim();
+        // Check that it's not just an email address
+        if (rawDisplay && !rawDisplay.includes('@')) {
+          extractedName = this.cleanBrandName(rawDisplay);
         }
+      }
+      
+      // 2. If no display name, or if it's too generic, use domain brand
+      if (!extractedName || extractedName.toLowerCase() === 'mail' || extractedName.toLowerCase() === 'noreply' || extractedName.toLowerCase() === 'no-reply' || extractedName.length <= 1) {
+        const domainMatch = from.match(/@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+        if (domainMatch && domainMatch[1]) {
+          const domain = domainMatch[1];
+          if (!['gmail.com', 'yahoo.com', 'outlook.com', 'google.com'].includes(domain)) {
+            const brand = this.getBrandFromDomain(domain);
+            extractedName = this.cleanBrandName(brand);
+          }
+        }
+      }
+      
+      if (extractedName && extractedName.length > 1) {
+        name = extractedName;
+        category = this.inferCategoryFromName(name);
       }
     }
 
     if (!name) return null;
 
     // Price extraction heuristic
-    // Look for patterns like: $15.49, $ 15.99, USD 10.00, etc.
     let price = 9.99; // fallback default price
     const priceRegex = /(?:\$|usd|£|€)\s*(\d+(?:\.\d{2})?)/i;
     const priceMatch = combinedText.match(priceRegex);
     if (priceMatch && priceMatch[1]) {
       price = parseFloat(priceMatch[1]);
     } else {
-      // Try searching for numeric decimals
       const decimalRegex = /\b(\d+\.\d{2})\b/;
       const decimalMatch = combinedText.match(decimalRegex);
       if (decimalMatch && decimalMatch[1]) {
@@ -1274,6 +1235,92 @@ class SubscriptApp {
     }
 
     return { name, price, category, cycle };
+  }
+
+  openSubDetailsModal(subId) {
+    const sub = this.subscriptions.find(s => s.id === subId);
+    if (!sub) return;
+
+    this.activeDetailSubId = subId;
+
+    const modal = document.getElementById('sub-details-modal');
+    if (!modal) return;
+
+    // Fill content
+    document.getElementById('detail-sub-name').innerText = sub.name;
+    document.getElementById('detail-sub-logo').innerText = sub.name.charAt(0);
+    document.getElementById('detail-sub-category').innerText = sub.category;
+    
+    const priceText = sub.isTrial && !sub.isCancelled ? 'Free Trial' : `$${parseFloat(sub.price).toFixed(2)}`;
+    const cycleText = sub.cycle === 'monthly' ? 'Monthly' : 'Yearly';
+    document.getElementById('detail-sub-price').innerText = `${priceText} (${cycleText})`;
+    
+    // Status & Renewal Date
+    const statusBadge = document.getElementById('detail-sub-status');
+    const renewalLabel = document.getElementById('detail-sub-renewal-label');
+    const renewalValue = document.getElementById('detail-sub-renewal-val');
+    
+    if (sub.isCancelled) {
+      statusBadge.innerText = 'Cancelled';
+      statusBadge.className = 'status-badge status-cancelled';
+      renewalLabel.innerText = 'Ended Date';
+      renewalValue.innerText = this.formatDate(sub.nextRenewal);
+    } else {
+      statusBadge.innerText = sub.isTrial ? 'Trial Active' : 'Active';
+      statusBadge.className = sub.isTrial ? 'status-badge status-trial' : 'status-badge status-active';
+      renewalLabel.innerText = sub.isTrial ? 'Trial Ends' : 'Next Renewal';
+      renewalValue.innerText = this.formatDate(sub.nextRenewal);
+    }
+
+    // Payment Card info
+    const card = this.virtualCards.find(c => c.id === sub.cardId);
+    const cardText = card ? `${card.name} (${card.digits.slice(-4)})` : 'None';
+    document.getElementById('detail-sub-card').innerText = cardText;
+
+    // Team section (only if team stack or sub.isTeam)
+    const teamSection = document.getElementById('detail-sub-team-section');
+    if (sub.isTeam) {
+      teamSection.style.display = 'block';
+      const owner = sub.owner || 'You';
+      document.getElementById('detail-sub-owner').innerText = owner;
+      
+      const seatsPurchased = sub.seatsPurchased || 1;
+      const seatsAssigned = sub.seatsAssigned || 1;
+      const pricePerSeat = sub.pricePerSeat || sub.price;
+      const unusedSeats = Math.max(0, seatsPurchased - seatsAssigned);
+      const wasteValue = unusedSeats * pricePerSeat;
+      
+      document.getElementById('detail-seats-purchased').innerText = seatsPurchased;
+      document.getElementById('detail-seats-assigned').innerText = seatsAssigned;
+      document.getElementById('detail-seats-unused').innerText = unusedSeats;
+      document.getElementById('detail-seats-waste').innerText = `$${wasteValue.toFixed(2)}/mo`;
+    } else {
+      teamSection.style.display = 'none';
+    }
+
+    // Footer actions
+    const footerActions = document.getElementById('detail-modal-actions');
+    footerActions.innerHTML = '';
+    
+    if (sub.isCancelled) {
+      footerActions.innerHTML = `
+        <button class="btn btn-primary" onclick="app.closeSubDetailsModal(); app.reactivateSubscription(${sub.id})">Reactivate Subscription</button>
+        <button class="btn btn-secondary text-danger" onclick="app.closeSubDetailsModal(); app.deleteSubscription(${sub.id})">Delete Permanently</button>
+      `;
+    } else {
+      footerActions.innerHTML = `
+        <button class="btn btn-primary btn-cancel-action-modal" onclick="app.closeSubDetailsModal(); app.openCancelWizard(${sub.id})">Cancel Subscription</button>
+        <button class="btn btn-secondary text-danger" onclick="app.closeSubDetailsModal(); app.deleteSubscription(${sub.id})">Delete Permanently</button>
+      `;
+    }
+
+    modal.classList.add('active');
+  }
+
+  closeSubDetailsModal() {
+    const modal = document.getElementById('sub-details-modal');
+    if (modal) modal.classList.remove('active');
+    this.activeDetailSubId = null;
   }
 
   renderDetectedGmailList() {

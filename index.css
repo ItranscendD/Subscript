@@ -564,10 +564,13 @@ body {
   align-items: center;
   justify-content: space-between;
   transition: var(--transition);
+  cursor: pointer;
 }
 
 .sub-item:hover {
   border-color: var(--border-focus);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
 
 .sub-item-left {
@@ -3358,6 +3361,119 @@ form input:focus, form select:focus {
   padding: 10px 20px !important;
   font-size: 13px !important;
 }
+
+/* =============================================
+   SUBSCRIPTION DETAILS MODAL
+   ============================================= */
+
+.detail-logo-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.detail-sub-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  background-color: var(--border-color);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.detail-sub-name-title {
+  font-size: 16px;
+  font-weight: 800;
+  margin: 0 0 2px 0;
+  letter-spacing: -0.01em;
+}
+
+.detail-sub-category-label {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.detail-box {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  padding: 12px;
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detail-label {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+}
+
+.detail-value {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+.status-badge {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.status-active {
+  background-color: rgba(34, 197, 94, 0.1);
+  color: rgb(34, 197, 94);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.status-cancelled {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: rgb(239, 68, 68);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.status-trial {
+  background-color: rgba(59, 130, 246, 0.1);
+  color: rgb(59, 130, 246);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.text-danger {
+  color: rgb(239, 68, 68) !important;
+}
+
+.btn-cancel-action-modal {
+  background-color: rgba(239, 68, 68, 0.08) !important;
+  color: rgb(239, 68, 68) !important;
+  border: 1px dashed rgba(239, 68, 68, 0.4) !important;
+}
+
+.btn-cancel-action-modal:hover {
+  background-color: rgba(239, 68, 68, 0.15) !important;
+}
+
 
 
 
